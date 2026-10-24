@@ -1,0 +1,70 @@
+name: Build release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_TERM_COLOR: always
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Check version
+        run: |
+          $metadata = cargo metadata --no-deps --format-version 1 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $version = ($metadata.packages | Where-Object name -eq 'majsoul-gallery').version
+          if ($env:RELEASE_TAG -ne "v$version") {
+            throw "Tag $env:RELEASE_TAG does not match Cargo.toml version $version."
+          }
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> .local/target'
+
+      - name: Build static version
+        run: cargo build --release --locked --no-default-features --package majsoul-gallery
+
+      - name: Package
+        run: |
+          $name = "majsoul-gallery-$env:RELEASE_TAG-windows-x64"
+          $package = New-Item -ItemType Directory -Path ".local/dist/$name" -Force
+          Copy-Item -LiteralPath '.local/target/release/majsoul-gallery.exe', 'README.md', 'LICENSE' -Destination $package.FullName
+          Compress-Archive -Path "$($package.FullName)/*" -DestinationPath ".local/dist/$name.zip"
+
+      - name: Create release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $archive = ".local/dist/majsoul-gallery-$env:RELEASE_TAG-windows-x64.zip"
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG $archive --clobber
+          } else {
+            gh release create $env:RELEASE_TAG $archive --verify-tag --draft --title $env:RELEASE_TAG --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
