@@ -50,6 +50,19 @@ pub(super) fn collection_image(
     }
 }
 
+pub(super) fn collection_meta(content: impl IntoElement, status: Option<Div>, p: Palette) -> Div {
+    h_flex()
+        .w_full()
+        .min_w_0()
+        .min_h(px(20.))
+        .gap_2()
+        .items_center()
+        .text_xs()
+        .text_color(p.muted)
+        .child(div().flex_1().min_w_0().child(content))
+        .when_some(status, |row, status| row.child(status.flex_shrink_0()))
+}
+
 pub(super) fn collection_status(owned: bool, contracted: bool, p: Palette) -> Div {
     badge(
         if !owned {

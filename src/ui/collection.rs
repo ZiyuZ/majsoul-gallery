@@ -80,26 +80,22 @@ impl Gallery {
                                 .child(self.favorite_indicator(&character.id, p)),
                         ),
                 )
-                .child(
-                    h_flex()
-                        .items_center()
-                        .justify_between()
-                        .text_xs()
-                        .text_color(p.muted)
-                        .child(format!(
-                            "{} 套皮肤",
-                            character
-                                .skins
-                                .iter()
-                                .filter(|skin| !self.account.is_connected()
-                                    || !self.only_owned
-                                    || self.account.snapshot.owns_skin(skin))
-                                .count()
-                        ))
-                        .when(self.account.is_connected(), |row| {
-                            row.child(collection_status(state.owned, state.contracted, p))
-                        }),
-                ),
+                .child(collection_meta(
+                    div().truncate().child(format!(
+                        "{} 套皮肤",
+                        character
+                            .skins
+                            .iter()
+                            .filter(|skin| !self.account.is_connected()
+                                || !self.only_owned
+                                || self.account.snapshot.owns_skin(skin))
+                            .count()
+                    )),
+                    self.account
+                        .is_connected()
+                        .then(|| collection_status(state.owned, state.contracted, p)),
+                    p,
+                )),
         )
         .into_any_element()
     }
@@ -567,27 +563,22 @@ impl Gallery {
                         .truncate()
                         .child(skin.display_name(&character.name).to_owned()),
                 )
-                .when(!self.skins_grouped, |column| {
-                    column.child(
-                        div()
-                            .truncate()
-                            .text_xs()
-                            .text_color(p.muted)
-                            .child(character.name.clone()),
-                    )
-                })
-                .child(
+                .child(collection_meta(
                     h_flex()
-                        .h(px(20.))
+                        .min_w_0()
+                        .gap_1()
                         .items_center()
-                        .justify_between()
-                        .child(div().when(skin.animated, |area| {
-                            area.child(badge("动态", p.accent, p.accent_bg))
-                        }))
-                        .when(self.account.is_connected(), |row| {
-                            row.child(collection_status(owned, false, p))
+                        .when(!self.skins_grouped, |row| {
+                            row.child(div().min_w_0().truncate().child(character.name.clone()))
+                        })
+                        .when(skin.animated, |row| {
+                            row.child(badge("动态", p.accent, p.accent_bg).flex_shrink_0())
                         }),
-                ),
+                    self.account
+                        .is_connected()
+                        .then(|| collection_status(owned, false, p)),
+                    p,
+                )),
         )
         .into_any_element()
     }
@@ -611,11 +602,11 @@ impl Gallery {
                 .child(title.name.clone()),
         )
         .when(self.account.is_connected(), |card| {
-            card.child(
-                h_flex()
-                    .justify_end()
-                    .child(collection_status(owned, false, p)),
-            )
+            card.child(collection_meta(
+                div(),
+                Some(collection_status(owned, false, p)),
+                p,
+            ))
         })
         .into_any_element()
     }
@@ -648,24 +639,13 @@ impl Gallery {
                 .truncate()
                 .child(item.name.clone()),
         )
-        .child(
-            h_flex()
-                .items_center()
-                .justify_between()
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(p.muted)
-                        .child(decoration_name(&item.category)),
-                )
-                .when(self.account.is_connected(), |row| {
-                    row.child(collection_status(
-                        self.account.snapshot.owns_decoration(item),
-                        false,
-                        p,
-                    ))
-                }),
-        )
+        .child(collection_meta(
+            div().truncate().child(decoration_name(&item.category)),
+            self.account
+                .is_connected()
+                .then(|| collection_status(self.account.snapshot.owns_decoration(item), false, p)),
+            p,
+        ))
         .into_any_element()
     }
 }

@@ -1,7 +1,7 @@
 mod filters;
 use filters::{controls_panel, controls_row};
 mod cards;
-use cards::{collection_card, collection_image, collection_status, picture};
+use cards::{collection_card, collection_image, collection_meta, collection_status, picture};
 mod browsing;
 mod collection;
 mod form_dialog;
