@@ -70,7 +70,13 @@ impl Gallery {
                                                     rank.map(|r| r.name.clone())
                                                         .unwrap_or_else(|| "暂无段位".into()),
                                                 )
-                                                .child(div().text_xs().text_color(p.muted).child(if mode == "四人麻将" { profile.rank_four_details.clone() } else { profile.rank_three_details.clone() })),
+                                                .child(div().text_xs().text_color(p.muted).child(
+                                                    if mode == "四人麻将" {
+                                                        profile.rank_four_details.clone()
+                                                    } else {
+                                                        profile.rank_three_details.clone()
+                                                    },
+                                                )),
                                         )
                                 }),
                             ),
@@ -94,39 +100,61 @@ impl Gallery {
                 .child("账号")
                 .child(Input::new(&self.login_username).disabled(self.account_busy))
                 .child("密码")
-                .child(Input::new(&self.login_password).mask_toggle().disabled(self.account_busy))
-                .child(h_flex().gap_4().items_center()
-                    .child(Checkbox::new("remember-password").label("记住密码")
-                        .checked(self.preferences.remember_password).disabled(self.account_busy)
-                        .on_click(cx.listener(|this, checked: &bool, window, cx| {
-                            this.preferences.remember_password = *checked;
-                            if !checked {
-                                this.preferences.auto_login = false;
-                                let username = this.login_username.read(cx).value().trim().to_owned();
-                                if let Err(error) = crate::account::credentials::save(&model::state_dir(), &username, None) {
-                                    this.login_message = Some(format!("清除登录信息失败：{error:#}"));
-                                }
-                            }
-                            this.refresh_saved_password(window, cx);
-                            this.save_login_preferences(cx);
-                        })))
-                    .child(Checkbox::new("auto-login").label("自动登录")
-                        .checked(self.preferences.auto_login).disabled(self.account_busy)
-                        .on_click(cx.listener(|this, checked: &bool, window, cx| {
-                            this.preferences.auto_login = *checked;
-                            if *checked { this.preferences.remember_password = true; }
-                            this.refresh_saved_password(window, cx);
-                            this.save_login_preferences(cx);
-                        })))
+                .child(
+                    Input::new(&self.login_password)
+                        .mask_toggle()
+                        .disabled(self.account_busy),
                 )
                 .child(
-                    div()
-                        .text_xs()
-                        .text_color(p.muted)
-                        .child(if self.preferences.remember_password {
-                            "密码派生值将明文保存在 accounts/credentials.json，可用于直接登录。已有记录会显示密码掩码。"
-                        } else { "密码仅用于本次登录。" }),
+                    h_flex()
+                        .gap_4()
+                        .items_center()
+                        .child(
+                            Checkbox::new("remember-password")
+                                .label("记住密码")
+                                .checked(self.preferences.remember_password)
+                                .disabled(self.account_busy)
+                                .on_click(cx.listener(|this, checked: &bool, window, cx| {
+                                    this.preferences.remember_password = *checked;
+                                    if !checked {
+                                        this.preferences.auto_login = false;
+                                        let username =
+                                            this.login_username.read(cx).value().trim().to_owned();
+                                        if let Err(error) = crate::account::credentials::save(
+                                            &model::state_dir(),
+                                            &username,
+                                            None,
+                                        ) {
+                                            this.login_message =
+                                                Some(format!("清除登录信息失败：{error:#}"));
+                                        }
+                                    }
+                                    this.refresh_saved_password(window, cx);
+                                    this.save_login_preferences(cx);
+                                })),
+                        )
+                        .child(
+                            Checkbox::new("auto-login")
+                                .label("自动登录")
+                                .checked(self.preferences.auto_login)
+                                .disabled(self.account_busy)
+                                .on_click(cx.listener(|this, checked: &bool, window, cx| {
+                                    this.preferences.auto_login = *checked;
+                                    if *checked {
+                                        this.preferences.remember_password = true;
+                                    }
+                                    this.refresh_saved_password(window, cx);
+                                    this.save_login_preferences(cx);
+                                })),
+                        ),
                 )
+                .child(div().text_xs().text_color(p.muted).child(
+                    if self.preferences.remember_password {
+                        "密码派生值将明文保存在 accounts/credentials.json，可用于直接登录。"
+                    } else {
+                        "密码仅用于本次登录。"
+                    },
+                ))
             })
             .child(div().mt_2().child("自动同步周期"))
             .child(
