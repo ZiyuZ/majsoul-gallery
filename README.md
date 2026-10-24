@@ -1,19 +1,26 @@
-# <img src="src/assets/app-icon.png" width="48" alt=""> 雀魂藏馆
+<!-- markdownlint-disable MD033 MD041 -->
 
-<p align="center">浏览角色与皮肤，整理收藏，规划契约材料。</p>
+<div align="center">
+  <img src="src/assets/app-icon.png" alt="雀魂藏馆图标" width="120" height="120">
+  <h1>雀魂藏馆</h1>
+  <p><strong>浏览角色与皮肤，整理收藏，规划契约材料。</strong></p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-168575" alt="版本 0.1.0">
-  <img src="https://img.shields.io/badge/platform-Windows-0078D4" alt="Windows">
-  <a href="Cargo.toml"><img src="https://img.shields.io/badge/Rust-GPUI_Kit-dea584" alt="Rust / GPUI Kit"></a>
-</p>
+  <p>
+    <a href="https://github.com/ZiyuZ/majsoul-gallery/releases"><img src="https://img.shields.io/badge/version-0.1.0-168575?style=flat-square" alt="版本 0.1.0"></a>
+    <a href="https://github.com/ZiyuZ/majsoul-gallery/releases"><img src="https://img.shields.io/github/downloads/ZiyuZ/majsoul-gallery/total?style=flat-square" alt="下载总数"></a>
+    <img src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square" alt="Windows">
+    <a href="Cargo.toml"><img src="https://img.shields.io/badge/Rust-GPUI_Kit-dea584?style=flat-square" alt="Rust / GPUI Kit"></a>
+  </p>
 
-<p align="center">
-  <a href="../../releases">下载</a> ·
-  <a href="#角色喜好表">角色喜好表</a> ·
-  <a href="#开始使用">开始使用</a> ·
-  <a href="#开发">开发</a>
-</p>
+  <p>
+    <a href="https://github.com/ZiyuZ/majsoul-gallery/releases">下载</a> ·
+    <a href="https://ziyuz.github.io/majsoul-gallery/gifts/">在线角色喜好表</a> ·
+    <a href="#开始使用">开始使用</a> ·
+    <a href="#开发">开发</a>
+  </p>
+</div>
+
+---
 
 ![主页](docs/images/home.png)
 
@@ -45,7 +52,9 @@
 
 按紫色礼物整理角色。HTML 版支持中文、拼音、首字母和 ID 搜索。
 
-**[下载角色喜好表 HTML](site/gifts/index.html)**，保存后用浏览器打开即可使用，支持离线浏览。
+**[在线查看角色喜好表](https://ziyuz.github.io/majsoul-gallery/gifts/)** · [下载 HTML](https://github.com/ZiyuZ/majsoul-gallery/raw/refs/heads/main/site/gifts/index.html)
+
+下载后用浏览器打开即可离线使用。
 
 <details>
 <summary>查看图片版角色喜好</summary>
