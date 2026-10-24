@@ -35,6 +35,11 @@ pub(super) fn collection_image(
 }
 
 /// Edge-to-edge cover inside a collection card's 1px border and 12px outer radius.
+pub(super) fn collection_portrait(path: Option<PathBuf>, width: f32, p: Palette) -> AnyElement {
+    collection_cover(path, width, width, p)
+}
+
+/// Edge-to-edge artwork inside a collection card's top corners.
 pub(super) fn collection_cover(
     path: Option<PathBuf>,
     width: f32,

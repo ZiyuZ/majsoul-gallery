@@ -31,12 +31,27 @@ impl Gallery {
         )
         .cursor_pointer()
         .on_click(cx.listener(move |this, _, _, cx| this.open_character(index, cx)))
-        .child(super::cards::collection_cover(
-            thumbnail,
-            width - 2.,
-            width * 0.95,
-            p,
-        ))
+        .child(
+            div()
+                .relative()
+                .flex_shrink_0()
+                .child(super::cards::collection_portrait(thumbnail, width - 2., p))
+                .when(self.account.is_connected() && state.favorite, |art| {
+                    art.child(
+                        div()
+                            .absolute()
+                            .top_2()
+                            .right_2()
+                            .size(px(24.))
+                            .rounded_md()
+                            .bg(p.panel.opacity(0.88))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(Icon::new(IconName::Star).size_4().text_color(p.gold)),
+                    )
+                }),
+        )
         .child(
             v_flex()
                 .p_3()
@@ -49,42 +64,38 @@ impl Gallery {
                         .gap_2()
                         .child(
                             div()
+                                .flex_1()
                                 .min_w_0()
                                 .truncate()
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .child(character.name.clone()),
                         )
-                        .child(
-                            h_flex()
-                                .gap_1()
-                                .items_center()
-                                .when(character.limited || character.collaboration, |row| {
-                                    row.child(
-                                        div()
-                                            .id(format!("availability-{}", character.id))
-                                            .text_color(p.gold)
-                                            .tooltip(move |window, cx| {
-                                                gpui_kit::component::tooltip::Tooltip::new(
-                                                    if collaboration {
-                                                        "联动限定"
-                                                    } else {
-                                                        text::LIMITED
-                                                    },
-                                                )
-                                                .build(window, cx)
-                                            })
-                                            .child(
-                                                Icon::new(if character.collaboration {
-                                                    IconName::Handshake
-                                                } else {
-                                                    IconName::Gem
-                                                })
-                                                .size_4(),
-                                            ),
-                                    )
-                                })
-                                .child(self.favorite_indicator(&character.id, p)),
-                        ),
+                        .when(character.limited || character.collaboration, |row| {
+                            row.child(
+                                div()
+                                    .id(format!("availability-{}", character.id))
+                                    .flex_shrink_0()
+                                    .text_color(p.gold)
+                                    .tooltip(move |window, cx| {
+                                        gpui_kit::component::tooltip::Tooltip::new(
+                                            if collaboration {
+                                                "联动限定"
+                                            } else {
+                                                text::LIMITED
+                                            },
+                                        )
+                                        .build(window, cx)
+                                    })
+                                    .child(
+                                        Icon::new(if character.collaboration {
+                                            IconName::Handshake
+                                        } else {
+                                            IconName::Gem
+                                        })
+                                        .size_4(),
+                                    ),
+                            )
+                        }),
                 )
                 .child(collection_meta(
                     div().truncate().child(format!(
@@ -548,13 +559,16 @@ impl Gallery {
         let (character_index, skin_index) = indices;
         let owned = self.account.snapshot.owns_skin(skin);
         let art_width = (width - 2.).max(1.);
-        let art_height = width * if self.skin_full_art { 1.35 } else { 0.95 };
         let path = if self.skin_full_art {
             skin.full_image()
         } else {
             skin.thumbnail()
         };
-        let artwork = super::cards::collection_cover(path, art_width, art_height, p);
+        let artwork = if self.skin_full_art {
+            super::cards::collection_cover(path, art_width, width * 1.35, p)
+        } else {
+            super::cards::collection_portrait(path, art_width, p)
+        };
         collection_card(
             format!("skin-card-{character_index}-{skin_index}"),
             width,
