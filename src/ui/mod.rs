@@ -4,6 +4,7 @@ mod cards;
 mod illustrations;
 mod images;
 mod inventory;
+mod titles;
 use images::app_icon;
 mod components;
 use cards::{collection_card, collection_image, collection_meta, collection_status, picture};
@@ -55,7 +56,7 @@ enum Category {
     Titles,
     Illustrations,
 }
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum ContractFilter {
     #[default]
     All,
@@ -132,6 +133,7 @@ pub struct Gallery {
     inventory: inventory::State,
     illustration: Option<usize>,
     illustration_filter: illustrations::Filter,
+    title_category: Option<crate::resource_catalog::TitleCategory>,
     illustration_export: illustrations::ExportState,
     login_username: Entity<InputState>,
     login_password: Entity<InputState>,
@@ -159,7 +161,7 @@ pub struct Gallery {
     character_limited: Option<bool>,
     character_collaboration: bool,
     decoration: String,
-    card_size: usize,
+    card_sizes: std::collections::BTreeMap<crate::settings::CardView, usize>,
     training_columns: usize,
     bond_hearts: bool,
     skins_grouped: bool,
@@ -276,6 +278,7 @@ impl Gallery {
             inventory: Default::default(),
             illustration: None,
             illustration_filter: Default::default(),
+            title_category: None,
             illustration_export: Default::default(),
             login_username,
             login_password,
@@ -297,7 +300,7 @@ impl Gallery {
             character_limited: None,
             character_collaboration: false,
             decoration: String::new(),
-            card_size: preferences.card_size,
+            card_sizes: preferences.card_sizes.clone(),
             training_columns: preferences.training_columns,
             bond_hearts: preferences.bond_hearts,
             skins_grouped: preferences.skins_grouped,
@@ -437,7 +440,7 @@ impl Gallery {
     fn persist_preferences(&mut self) {
         let mut preferences = self.preferences.clone();
         preferences.dark = self.dark;
-        preferences.card_size = self.card_size;
+        preferences.card_sizes = self.card_sizes.clone();
         preferences.training_columns = self.training_columns;
         preferences.bond_hearts = self.bond_hearts;
         preferences.skins_grouped = self.skins_grouped;

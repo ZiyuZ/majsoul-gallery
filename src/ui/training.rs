@@ -98,13 +98,7 @@ impl Gallery {
                 (!self.only_owned || state.owned)
                     && self.character_matches(c)
                     && c.search.matches(&query)
-                    && match self.contract_filter {
-                        ContractFilter::All => true,
-                        ContractFilter::Contracted => state.contracted,
-                        ContractFilter::Uncontracted => !state.contracted,
-                        ContractFilter::Full => state.bond >= MAX_BOND,
-                        ContractFilter::Ready => self.account.snapshot.can_contract(c),
-                    }
+                    && self.contract_matches(c)
             })
             .collect::<Vec<_>>();
         self.account

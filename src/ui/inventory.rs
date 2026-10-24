@@ -89,7 +89,7 @@ impl Gallery {
             .collect::<Vec<_>>();
         let available =
             (f32::from(window.viewport_size().width) - self.sidebar_width() - 32.).max(300.);
-        let target = [130., 180., 230.][self.card_size];
+        let target = [130., 180., 230.][self.card_size()];
         let columns = ((available + 16.) / (target + 16.)).floor().max(1.) as usize;
         let width = (available - (columns - 1) as f32 * 16.) / columns as f32;
         let groups = [

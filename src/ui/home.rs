@@ -15,7 +15,7 @@ impl Gallery {
             (f32::from(window.viewport_size().width) - self.sidebar_width() - 32.).max(300.);
         let spacious = ((f32::from(window.viewport_size().height) - 650.) / 250.).clamp(0., 1.);
         let gap = 8. + spacious * 4.;
-        let portrait_height = 100. + spacious * 90.;
+        let portrait_height = 140. + spacious * 90.;
         let category_icon = 36. + spacious * 12.;
         let preview_count = ((available + 12.) / 165.).floor().clamp(3., 7.) as usize;
         let preview_width = (available - (preview_count - 1) as f32 * 12.) / preview_count as f32;
@@ -134,7 +134,7 @@ impl Gallery {
                         ),
                 )
                 .child(
-                    h_flex().gap_3().children(
+                    h_flex().gap_3().flex_shrink_0().items_start().children(
                         self.library
                             .characters
                             .iter()

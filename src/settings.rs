@@ -1,13 +1,26 @@
 use anyhow::Result;
 use serde_json::{Value, json};
-use std::{fs, path::PathBuf};
+use std::{collections::BTreeMap, fs, path::PathBuf};
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum CardView {
+    Characters,
+    Skins,
+    Decorations,
+    Titles,
+    Illustrations,
+    Inventory,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Settings {
     pub assets: Option<PathBuf>,
     pub installation: Option<PathBuf>,
     pub dark: bool,
-    pub card_size: usize,
+    pub card_sizes: BTreeMap<CardView, usize>,
     pub training_columns: usize,
     pub bond_hearts: bool,
     pub skins_grouped: bool,
@@ -23,14 +36,14 @@ pub struct Settings {
 
 impl Settings {
     fn from_json(value: Value) -> Self {
+        let mut card_sizes: BTreeMap<CardView, usize> =
+            serde_json::from_value(value["card_sizes"].clone()).unwrap_or_default();
+        card_sizes.retain(|_, size| *size <= 2);
         Self {
             assets: value["assets"].as_str().map(PathBuf::from),
             installation: value["installation"].as_str().map(PathBuf::from),
             dark: value["dark"].as_bool().unwrap_or(false),
-            card_size: value["card_size"]
-                .as_u64()
-                .filter(|size| *size <= 2)
-                .unwrap_or(1) as usize,
+            card_sizes,
             training_columns: value["training_columns"]
                 .as_u64()
                 .filter(|n| [1, 2, 3].contains(n))
@@ -72,7 +85,7 @@ impl Settings {
                 "assets": self.assets,
                 "installation": self.installation,
                 "dark": self.dark,
-                "card_size": self.card_size,
+                "card_sizes": self.card_sizes,
                 "training_columns": self.training_columns,
                 "bond_hearts": self.bond_hearts,
                 "skins_grouped": self.skins_grouped,
@@ -98,7 +111,7 @@ mod tests {
         let settings = Settings::from_json(json!({"assets": "D:/majsoul-assets"}));
         assert_eq!(settings.assets, Some(PathBuf::from("D:/majsoul-assets")));
         assert!(!settings.dark);
-        assert_eq!(settings.card_size, 1);
+        assert!(settings.card_sizes.is_empty());
         assert_eq!(settings.training_columns, 2);
         assert!(settings.bond_hearts);
         assert!(settings.skins_grouped);
@@ -118,11 +131,12 @@ mod tests {
     #[test]
     fn restores_preferences_and_rejects_out_of_range_card_sizes() {
         let settings = Settings::from_json(json!({
-            "dark": true, "card_size": 2, "skins_grouped": false, "descending": true,
+            "dark": true, "card_sizes": {"characters":2,"illustrations":0}, "skins_grouped": false, "descending": true,
             "sidebar_compact":true,"login_username":"雀士","sync_minutes":60,"training_columns":1,"bond_hearts":false
         }));
         assert!(settings.dark);
-        assert_eq!(settings.card_size, 2);
+        assert_eq!(settings.card_sizes[&CardView::Characters], 2);
+        assert_eq!(settings.card_sizes[&CardView::Illustrations], 0);
         assert_eq!(settings.training_columns, 1);
         assert!(!settings.bond_hearts);
         assert!(!settings.skins_grouped);
@@ -139,7 +153,11 @@ mod tests {
             3
         );
         for size in [json!(-1), json!(4), json!("large")] {
-            assert_eq!(Settings::from_json(json!({"card_size": size})).card_size, 1);
+            assert!(
+                Settings::from_json(json!({"card_sizes": {"characters":size}}))
+                    .card_sizes
+                    .is_empty()
+            );
             assert_eq!(
                 Settings::from_json(json!({"training_columns": size})).training_columns,
                 2

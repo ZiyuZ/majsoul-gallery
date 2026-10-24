@@ -16,18 +16,36 @@ pub(super) fn controls_row() -> Div {
 }
 
 impl Gallery {
+    fn card_view(&self) -> crate::settings::CardView {
+        use crate::settings::CardView;
+        if self.page == Page::Inventory {
+            return CardView::Inventory;
+        }
+        match self.category {
+            Category::Characters => CardView::Characters,
+            Category::Skins => CardView::Skins,
+            Category::Decorations => CardView::Decorations,
+            Category::Titles => CardView::Titles,
+            Category::Illustrations => CardView::Illustrations,
+        }
+    }
+
+    pub(super) fn card_size(&self) -> usize {
+        self.card_sizes.get(&self.card_view()).copied().unwrap_or(1)
+    }
+
     pub(super) fn card_size_controls(&self, p: Palette, cx: &mut Context<Self>) -> ButtonGroup {
         choice_group("card-size").children(["小", "中", "大"].into_iter().enumerate().map(
             |(size, label)| {
                 segment_button(
                     format!("card-size-{size}"),
                     label,
-                    self.card_size == size,
+                    self.card_size() == size,
                     p,
                 )
                 .w(px(40.))
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    this.card_size = size;
+                    this.card_sizes.insert(this.card_view(), size);
                     cx.notify();
                 }))
             },
@@ -211,45 +229,62 @@ impl Gallery {
                     )
                 })
             })
-            .when(training, |row| {
-                row.child(
-                    choice_group("contract-filter").children(
-                        [
-                            (ContractFilter::All, "全部"),
-                            (ContractFilter::Contracted, "已契约"),
-                            (ContractFilter::Uncontracted, "未契约"),
-                            (ContractFilter::Ready, text::CONTRACT_READY),
-                            (ContractFilter::Full, text::FULL_BOND),
-                        ]
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, (filter, label))| {
-                            segment_button(
-                                format!("contract-{i}"),
-                                label,
-                                self.contract_filter == filter,
-                                p,
-                            )
-                            .disabled(!self.account.is_connected())
-                            .when(filter == ContractFilter::Full, |b| {
-                                b.tooltip("累计好感达到 88,000，包含已契约角色")
-                            })
-                            .when(filter == ContractFilter::Ready, |b| {
-                                b.tooltip("已拥有、未契约、满好感且契约材料齐备")
-                            })
-                            .on_click(cx.listener(
-                                move |this, _, _, cx| {
-                                    this.contract_filter = filter;
-                                    cx.notify();
-                                },
-                            ))
-                        }),
-                    ),
-                )
+            .when(
+                training || (self.category == Category::Characters && self.account.is_connected()),
+                |row| row.child(self.contract_controls(p, cx)),
+            )
+            .when(!training && self.category == Category::Titles, |row| {
+                row.child(self.title_filters(p, cx))
             })
             .child(div().flex_1())
             .child(self.account_filters(characters, p, cx))
     }
+    fn contract_controls(&self, p: Palette, cx: &mut Context<Self>) -> ButtonGroup {
+        choice_group("contract-filter").children(
+            [
+                (ContractFilter::All, "全部"),
+                (ContractFilter::Contracted, "已契约"),
+                (ContractFilter::Uncontracted, "未契约"),
+                (ContractFilter::Ready, text::CONTRACT_READY),
+                (ContractFilter::Full, text::FULL_BOND),
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(i, (filter, label))| {
+                segment_button(
+                    format!("contract-{i}"),
+                    label,
+                    self.contract_filter == filter,
+                    p,
+                )
+                .disabled(!self.account.is_connected())
+                .when(filter == ContractFilter::Full, |b| {
+                    b.tooltip("累计好感达到 88,000，包含已契约角色")
+                })
+                .when(filter == ContractFilter::Ready, |b| {
+                    b.tooltip("已拥有、未契约、满好感且契约材料齐备")
+                })
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.contract_filter = filter;
+                    cx.notify();
+                }))
+            }),
+        )
+    }
+    pub(super) fn contract_matches(&self, character: &Character) -> bool {
+        if !self.account.is_connected() {
+            return true;
+        }
+        let state = self.account.snapshot.character(&character.id);
+        match self.contract_filter {
+            ContractFilter::All => true,
+            ContractFilter::Contracted => state.contracted,
+            ContractFilter::Uncontracted => !state.contracted,
+            ContractFilter::Full => state.bond >= MAX_BOND,
+            ContractFilter::Ready => self.account.snapshot.can_contract(character),
+        }
+    }
+
     pub(super) fn character_filters(&self, p: Palette, cx: &mut Context<Self>) -> AnyElement {
         h_flex()
             .gap_2()

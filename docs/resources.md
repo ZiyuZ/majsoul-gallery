@@ -231,7 +231,7 @@ GetCharacterInfo(id)：spot.character_spot 优先，否则 item_definition.chara
 
 图标通过 `extendres/items/` 下的本地图集配置和命名 Sprite 定位。缺少图集的条目保留定义，消费端可显示占位图。解析与分类见 [core/items.rs](../crates/majsoul-assets/src/core/items.rs)。
 
-主应用的道具展示规则位于 [inventory-filter.json](../src/assets/inventory-filter.json)，通过 `include_str!` 编译到可执行文件。`excluded_groups` 隐藏整类道具，`excluded_items` 按精确 ID 隐藏指定条目，值为维护时参考的名称。当前隐藏活动道具、其他道具、试炼券和红牛。规则在加载素材库时生效，修改后重新编译即可应用到已有素材库。原始物品定义与账号库存保留，契约计算继续按配置的等价 ID 组求和。
+主应用的展示目录位于 [resource-catalog.json](../src/assets/resource-catalog.json)，通过 `include_str!` 编译到可执行文件。`items.hidden_groups` 隐藏整类道具，`items.hidden` 以 ID 为键列出隐藏条目，名称用于阅读和维护。当前隐藏活动道具、其他道具、试炼券和红牛。目录在加载素材库时生效，修改后重新编译即可应用到已有素材库。原始物品定义与账号库存保留，契约计算继续按配置的等价 ID 组求和。
 
 `item.icon` 可以表示图集中的虚拟单图路径。例如 `extendRes/items/biscuit0.jpg` 需要通过图集配置找到页面和 Sprite，具体读取方法见第 5.2 节。
 
@@ -293,6 +293,10 @@ GetCharacterInfo(id)：spot.character_spot 优先，否则 item_definition.chara
 | 段位 | `level_definition.level_definition.primary_icon → 图标` | 按 primary_icon 去重为大段位徽章，保留四麻/三麻差异 |
 
 业务记录与图片可以是多对一关系，统计时应分别记录业务条目数和独立图像数。
+
+`resource-catalog.json` 的 `titles` 部分维护称号目录：`hidden` 以 ID 为键列出隐藏条目，`variants` 为同名称号补充模式或系列标签，`categories` 在每个分类下直接列出「称号 ID → 名称」。分类为充值回馈、成就奖励、活动纪念、赛事荣誉、专属称号、早期纪念和其他。程序按 ID 查询归属，新增但尚未整理的称号进入其他。维护时将对应 ID 和名称加入目标分类即可，每个 ID 归属一个分类。该分类由应用维护，本地称号表的 `unlock_type`、`unlock_param` 未提供完整的来源分类。
+
+同名记录保留各自的图片和 ID；共享图片的多个 ID 汇总用于拥有判断。“最初的雀圣”和“最初的魂天”各有四麻和三麻版本，分别对应原始目录与带 `3` 后缀的目录，可参考 [雀圣说明](https://wiki.biligame.com/qh/最初的雀圣) 和 [魂天说明](https://wiki.biligame.com/qh/最初的魂天)。
 
 ### 4.6 音乐与音效
 

@@ -115,7 +115,7 @@ impl Gallery {
         let lib = self.library.clone();
         let available =
             (f32::from(window.viewport_size().width) - self.sidebar_width() - 32.).max(300.);
-        let target = [130., 200., 280.][self.card_size];
+        let target = [130., 200., 280.][self.card_size()];
         let columns = ((available + 16.) / (target + 16.)).floor().max(1.);
         let width = (available - (columns - 1.) * 16.) / columns;
         let columns = columns as usize;
@@ -266,6 +266,7 @@ impl Gallery {
                     .filter(|(_, c)| {
                         c.search.matches(&query)
                             && self.character_matches(c)
+                            && self.contract_matches(c)
                             && (!self.account.is_connected()
                                 || !self.only_owned
                                 || self.account.snapshot.character(&c.id).owned)
@@ -384,6 +385,9 @@ impl Gallery {
                     .enumerate()
                     .filter(|(_, title)| {
                         title.search.matches(&query)
+                            && self
+                                .title_category
+                                .is_none_or(|category| category == title.category)
                             && (!self.account.is_connected()
                                 || !self.only_owned
                                 || self.account.snapshot.owns_title(title))
@@ -406,7 +410,7 @@ impl Gallery {
             self.only_owned,
             self.decoration,
             width.to_bits(),
-            self.card_size,
+            self.card_size(),
             lib.root.display(),
             total,
             self.character_sex,
@@ -418,7 +422,10 @@ impl Gallery {
             self.skin_full_art,
             self.character_order as u8
         );
-        let key = format!("{key}|{:?}", self.illustration_filter);
+        let key = format!(
+            "{key}|{:?}|{:?}|{:?}",
+            self.illustration_filter, self.contract_filter, self.title_category
+        );
         if key != self.collection_key {
             self.collection_list.reset(rows.len());
             self.collection_list.scroll_to(ListOffset {
@@ -611,13 +618,19 @@ impl Gallery {
                 .truncate()
                 .child(title.name.clone()),
         )
-        .when(self.account.is_connected(), |card| {
-            card.child(collection_meta(
-                div(),
-                Some(collection_status(owned, false, p)),
-                p,
-            ))
-        })
+        .child(collection_meta(
+            div().truncate().child(
+                title
+                    .variant
+                    .as_deref()
+                    .unwrap_or(title.category.label())
+                    .to_owned(),
+            ),
+            self.account
+                .is_connected()
+                .then(|| collection_status(owned, false, p)),
+            p,
+        ))
         .into_any_element()
     }
     fn decoration_card(

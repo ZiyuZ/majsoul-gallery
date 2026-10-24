@@ -3857,7 +3857,7 @@ checksum = "dae608c151f68243f2b000364e1f7b186d9c29845f7d2d85bd31b9ad77ad552b"
 
 [[package]]
 name = "majsoul-api"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -3879,7 +3879,7 @@ dependencies = [
 
 [[package]]
 name = "majsoul-assets"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "aes",
  "anyhow",
@@ -3897,7 +3897,7 @@ dependencies = [
 
 [[package]]
 name = "majsoul-gallery"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -9013,7 +9013,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "flate2",

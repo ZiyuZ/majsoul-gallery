@@ -180,8 +180,14 @@ pub struct Title {
     pub name: String,
     pub image: Option<PathBuf>,
     pub search: SearchIndex,
+    pub category: crate::resource_catalog::TitleCategory,
+    pub variant: Option<String>,
 }
-fn title_entries(root: &Path, table: &Value) -> Vec<Title> {
+fn title_entries(
+    root: &Path,
+    table: &Value,
+    rules: &crate::resource_catalog::TitleCatalog,
+) -> Vec<Title> {
     let mut titles = Vec::new();
     if let Some(entries) = table["entries"].as_object() {
         for entry in entries.values() {
@@ -213,13 +219,26 @@ fn title_entries(root: &Path, table: &Value) -> Vec<Title> {
                     .insert(id(&entry["id"]));
             }
             for (name, ids) in names {
-                let ids = ids.into_iter().collect::<Vec<_>>();
+                let ids = ids
+                    .into_iter()
+                    .filter(|id| rules.allows(id))
+                    .collect::<Vec<_>>();
+                if ids.is_empty() {
+                    continue;
+                }
+                let variant = rules.variant(&ids);
+                let category = rules.category(&ids);
                 titles.push(Title {
                     id: ids[0].clone(),
-                    search: SearchIndex::new(&name, &ids.join(" ")),
+                    search: SearchIndex::new(
+                        &format!("{name} {}", variant.as_deref().unwrap_or_default()),
+                        &ids.join(" "),
+                    ),
                     ids,
                     name,
                     image: image.clone(),
+                    category,
+                    variant,
                 });
             }
         }
@@ -273,6 +292,7 @@ impl Library {
             path
         };
         let root = root.canonicalize().context("素材包目录无法访问")?;
+        let resource_catalog = crate::resource_catalog::ResourceCatalog::embedded()?;
         let manifest = read(&root, "manifest.json")?;
         ensure!(
             manifest["schema"] == "majsoul-gallery-assets" && manifest["schema_version"] == 2,
@@ -297,7 +317,7 @@ impl Library {
                     }
                 }
                 if kind == "titles" {
-                    titles = title_entries(&root, &table);
+                    titles = title_entries(&root, &table, &resource_catalog.titles);
                 }
                 if kind == "illustrations" {
                     illustrations = illustration_entries(&root, &table);
@@ -448,12 +468,20 @@ impl Library {
                     .as_array()
                     .map(|a| {
                         a.iter()
-                            .map(|r| Requirement {
-                                quantity: r["quantity"].as_u64().unwrap_or(0),
-                                items: r["items"]
+                            .map(|r| {
+                                let mut items: Vec<Item> = r["items"]
                                     .as_array()
                                     .map(|a| a.iter().map(&item).collect())
-                                    .unwrap_or_default(),
+                                    .unwrap_or_default();
+                                items.sort_by_key(|item| {
+                                    item_definitions
+                                        .get(&item.id)
+                                        .is_some_and(|definition| definition.locked)
+                                });
+                                Requirement {
+                                    quantity: r["quantity"].as_u64().unwrap_or(0),
+                                    items,
+                                }
                             })
                             .collect()
                     })
@@ -484,10 +512,9 @@ impl Library {
             }
         }
         characters.sort_by_key(|c| (c.sort, c.id.clone()));
-        let inventory_policy = crate::inventory_policy::InventoryPolicy::embedded()?;
         let mut inventory_items = item_definitions
             .into_values()
-            .filter(|definition| inventory_policy.allows(definition))
+            .filter(|definition| resource_catalog.allows(definition))
             .map(|definition| InventoryItem {
                 icon: icons.get(&definition.id).cloned(),
                 search: SearchIndex::new(&definition.name, &definition.id),
@@ -559,6 +586,27 @@ pub fn initial_source(settings: &crate::settings::Settings) -> Option<PathBuf> {
 mod tests {
     use super::*;
     #[test]
+    fn four_symbols_titles_preserve_variants_alias_ownership_and_pinyin_search() {
+        let table = serde_json::json!({"entries":{
+            "dragon":{"id":"600090","name":"四象战冠军","bindings":[{"table":"item_definition.title","id":600090,"name":"四象战冠军"},{"table":"item_definition.title","id":600118,"name":"四象战冠军"}]},
+            "bird":{"id":"600091","name":"四象战冠军","bindings":[{"table":"item_definition.title","id":600091,"name":"四象战冠军"}]},
+            "tiger":{"id":"600099","name":"四象战冠军","bindings":[{"table":"item_definition.title","id":600099,"name":"四象战冠军"}]},
+            "tortoise":{"id":"600106","name":"四象战冠军","bindings":[{"table":"item_definition.title","id":600106,"name":"四象战冠军"}]}
+        }});
+        let catalog = crate::resource_catalog::ResourceCatalog::embedded().unwrap();
+        let titles = title_entries(Path::new("."), &table, &catalog.titles);
+        assert_eq!(titles.len(), 4);
+        for (title, variant) in titles.iter().zip(["青龙", "朱雀", "白虎", "玄武"]) {
+            assert_eq!(title.variant.as_deref(), Some(variant));
+        }
+        assert!(titles[0].search.matches("qinglong"));
+        assert!(titles[0].search.matches("ql"));
+        let mut account = AccountSnapshot::default();
+        account.owned_titles.insert("600118".into());
+        assert!(account.owns_title(&titles[0]));
+        assert!(titles[1..].iter().all(|title| !account.owns_title(title)));
+    }
+    #[test]
     fn illustration_images_follow_explicit_roles_and_ignore_unrelated_assets() -> Result<()> {
         let temp = tempfile::tempdir()?;
         for file in ["thumb.png", "main.png", "emoji.png"] {
@@ -628,7 +676,7 @@ mod tests {
                 "item_assets":{"303013":"normal.png","303113":"locked.png"}
             }),
         )?;
-        let refs = json!([{"id":303013,"name":"香喷喷曲奇"},{"id":303113,"name":"香喷喷曲奇"}]);
+        let refs = json!([{"id":303113,"name":"香喷喷曲奇"},{"id":303013,"name":"香喷喷曲奇"}]);
         crate::files::write_json(
             &root.join("character.json"),
             &json!({
@@ -645,6 +693,10 @@ mod tests {
         assert_eq!(lib.characters[0].gifts.len(), 1);
         assert_eq!(lib.characters[0].gifts[0].id, "303013");
         assert_eq!(lib.characters[0].materials[0].items.len(), 2);
+        assert_eq!(
+            lib.characters[0].materials[0].display_item().unwrap().id,
+            "303013"
+        );
         Ok(())
     }
     #[test]
@@ -684,7 +736,8 @@ mod tests {
                 {"table": "item_definition.item", "id": 305563, "name": "图标"}
             ]
         }}});
-        let titles = title_entries(Path::new("."), &table);
+        let rules = crate::resource_catalog::ResourceCatalog::embedded().unwrap();
+        let titles = title_entries(Path::new("."), &table, &rules.titles);
         assert_eq!(titles.len(), 1);
         assert_eq!(titles[0].ids, ["600052", "600079"]);
         assert!(titles[0].search.matches("600079"));
