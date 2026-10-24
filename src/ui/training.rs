@@ -131,7 +131,10 @@ impl Gallery {
         let mut grid = v_flex().gap_2();
         for row in items.chunks(columns) {
             grid = grid.child(
-                h_flex()
+                div()
+                    .grid()
+                    .grid_cols(columns as u16)
+                    .w_full()
                     .gap_3()
                     .items_stretch()
                     .children(row.iter().map(|&(index, c)| {
@@ -139,7 +142,6 @@ impl Gallery {
                         let bond = BondProgress::new(state.bond);
                         v_flex()
                             .id(("training", index))
-                            .flex_1()
                             .min_w_0()
                             .min_h(px(78.))
                             .p_2()
@@ -267,8 +269,7 @@ impl Gallery {
                                         ),
                                     ),
                             )
-                    }))
-                    .children((row.len()..columns).map(|_| div().flex_1())),
+                    })),
             );
         }
         if total == 0 {
