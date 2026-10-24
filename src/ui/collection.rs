@@ -119,92 +119,73 @@ impl Gallery {
             (Category::Decorations, text::DECORATIONS),
             (Category::Titles, text::TITLES),
         ];
-        let mut controls =
-            controls_panel(p)
-                .child(
-                    controls_row()
-                        .justify_between()
-                        .flex_wrap()
-                        .child(
-                            h_flex()
-                                .gap_1()
-                                .items_center()
-                                .children(tabs.into_iter().map(|(category, name)| {
-                                    view_tab(
-                                        format!("category-{name}"),
-                                        name,
-                                        self.category == category,
-                                        p,
-                                    )
-                                    .on_click(cx.listener(
-                                        move |this, _, _, cx| {
-                                            this.category = category;
-                                            cx.notify();
-                                        },
-                                    ))
-                                })),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_3()
-                                .items_center()
-                                .flex_wrap()
-                                .when(self.category == Category::Skins, |row| {
-                                    row.child(
-                                        h_flex().gap_1().items_center().children(
-                                            [
-                                                (true, "按角色", IconName::List),
-                                                (false, "画廊", IconName::LayoutGrid),
-                                            ]
-                                            .into_iter()
-                                            .map(
-                                                |(grouped, label, icon)| {
-                                                    view_tab(
-                                                        format!("skin-view-{grouped}"),
-                                                        label,
-                                                        self.skins_grouped == grouped,
-                                                        p,
-                                                    )
-                                                    .icon(icon)
-                                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                                        this.skins_grouped = grouped;
-                                                        cx.notify();
-                                                    }))
-                                                },
-                                            ),
-                                        ),
-                                    )
-                                })
-                                .child(choice_group("card-size").children(
-                                    ["小", "中", "大"].into_iter().enumerate().map(
-                                        |(size, label)| {
-                                            segment_button(
-                                                format!("card-size-{size}"),
-                                                label,
-                                                self.card_size == size,
-                                                p,
-                                            )
-                                            .w(px(40.))
-                                            .on_click(
-                                                cx.listener(move |this, _, _, cx| {
-                                                    this.card_size = size;
+        let mut controls = controls_panel(p)
+            .child(
+                controls_row()
+                    .justify_between()
+                    .flex_wrap()
+                    .child(
+                        h_flex()
+                            .gap_1()
+                            .items_center()
+                            .children(tabs.into_iter().map(|(category, name)| {
+                                view_tab(
+                                    format!("category-{name}"),
+                                    name,
+                                    self.category == category,
+                                    p,
+                                )
+                                .on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        this.category = category;
+                                        cx.notify();
+                                    },
+                                ))
+                            })),
+                    )
+                    .child(
+                        h_flex()
+                            .gap_3()
+                            .items_center()
+                            .flex_wrap()
+                            .when(self.category == Category::Skins, |row| {
+                                row.child(
+                                    h_flex().gap_1().items_center().children(
+                                        [
+                                            (true, "按角色", IconName::List),
+                                            (false, "画廊", IconName::LayoutGrid),
+                                        ]
+                                        .into_iter()
+                                        .map(
+                                            |(grouped, label, icon)| {
+                                                view_tab(
+                                                    format!("skin-view-{grouped}"),
+                                                    label,
+                                                    self.skins_grouped == grouped,
+                                                    p,
+                                                )
+                                                .icon(icon)
+                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                    this.skins_grouped = grouped;
                                                     cx.notify();
-                                                }),
-                                            )
-                                        },
+                                                }))
+                                            },
+                                        ),
                                     ),
-                                )),
-                        ),
-                )
-                .child(div().h(px(1.)).w_full().bg(p.border))
-                .when(self.category != Category::Decorations, |panel| {
-                    panel.child(self.filter_controls(
-                        false,
-                        matches!(self.category, Category::Characters | Category::Skins),
-                        p,
-                        cx,
-                    ))
-                });
+                                )
+                            })
+                            .child(self.card_size_controls(p, cx)),
+                    ),
+            )
+            .child(div().h(px(1.)).w_full().bg(p.border))
+            .when(self.category != Category::Decorations, |panel| {
+                panel.child(self.filter_controls(
+                    false,
+                    matches!(self.category, Category::Characters | Category::Skins),
+                    p,
+                    cx,
+                ))
+            });
         if self.category == Category::Decorations {
             let filters = [
                 "",

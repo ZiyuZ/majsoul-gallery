@@ -4,6 +4,7 @@ pub mod catalog;
 pub mod characters;
 pub mod index;
 pub mod item_icons;
+pub mod items;
 mod lua;
 pub mod names;
 pub mod preview;

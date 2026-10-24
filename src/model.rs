@@ -13,6 +13,13 @@ pub struct Item {
     pub name: String,
     pub icon: Option<PathBuf>,
 }
+
+#[derive(Clone, Debug)]
+pub struct InventoryItem {
+    pub definition: majsoul_assets::core::items::ItemDefinition,
+    pub icon: Option<PathBuf>,
+    pub search: SearchIndex,
+}
 #[derive(Clone, Debug)]
 pub struct Requirement {
     pub quantity: u64,
@@ -165,6 +172,7 @@ pub struct Library {
     pub decorations: Vec<Decoration>,
     pub ranks: BTreeMap<String, Item>,
     pub titles: Vec<Title>,
+    pub items: Vec<InventoryItem>,
     pub status: String,
 }
 fn read(root: &Path, relative: &str) -> Result<Value> {
@@ -206,9 +214,19 @@ impl Library {
         let mut decorations = Vec::new();
         let mut ranks = BTreeMap::new();
         let mut titles = Vec::new();
+        let mut item_definitions =
+            BTreeMap::<String, majsoul_assets::core::items::ItemDefinition>::new();
         if let Some(categories) = manifest["categories"].as_object() {
             for (kind, file) in categories {
                 let table = read(&root, file.as_str().context("分类路径无效")?)?;
+                if matches!(kind.as_str(), "items" | "gifts") {
+                    for (key, value) in table["definitions"].as_object().into_iter().flatten() {
+                        item_definitions.insert(
+                            key.clone(),
+                            serde_json::from_value(value.clone()).context("道具定义无效")?,
+                        );
+                    }
+                }
                 if kind == "titles" {
                     titles = title_entries(&root, &table);
                 }
@@ -343,7 +361,16 @@ impl Library {
                 skins.sort_by_key(|s| (s.id != initial, s.id.clone()));
                 let gifts = profile["gifts"]
                     .as_array()
-                    .map(|a| a.iter().map(&item).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter(|value| {
+                                !item_definitions
+                                    .get(&id(&value["id"]))
+                                    .is_some_and(|definition| definition.locked)
+                            })
+                            .map(&item)
+                            .collect()
+                    })
                     .unwrap_or_default();
                 let materials = profile["contract_materials"]
                     .as_array()
@@ -385,12 +412,26 @@ impl Library {
             }
         }
         characters.sort_by_key(|c| (c.sort, c.id.clone()));
+        let inventory_policy = crate::inventory_policy::InventoryPolicy::embedded()?;
+        let mut inventory_items = item_definitions
+            .into_values()
+            .filter(|definition| inventory_policy.allows(definition))
+            .map(|definition| InventoryItem {
+                icon: icons.get(&definition.id).cloned(),
+                search: SearchIndex::new(&definition.name, &definition.id),
+                definition,
+            })
+            .collect::<Vec<_>>();
+        inventory_items.sort_by(|a, b| {
+            (a.definition.sort, &a.definition.id).cmp(&(b.definition.sort, &b.definition.id))
+        });
         Ok(Self {
             root,
             characters,
             decorations,
             ranks,
             titles,
+            items: inventory_items,
             status: text(&manifest, "status"),
         })
     }
@@ -444,6 +485,61 @@ pub fn initial_source(settings: &crate::settings::Settings) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn inventory_definitions_keep_locked_stock_separate_and_character_gifts_unlocked() -> Result<()>
+    {
+        use majsoul_assets::core::items::{GiftRarity, ItemDefinition, ItemGroup};
+        use serde_json::json;
+        let temp = tempfile::tempdir()?;
+        let root = temp.path();
+        for file in ["normal.png", "locked.png"] {
+            std::fs::write(root.join(file), b"image")?;
+        }
+        let definition = |id: &str, locked: bool| ItemDefinition {
+            id: id.into(),
+            name: "香喷喷曲奇".into(),
+            sort: if locked { 2 } else { 1 },
+            group: ItemGroup::Gifts,
+            gift_type: 1,
+            gift_bond: 5000,
+            rarity: Some(GiftRarity::Purple),
+            locked,
+            description: String::new(),
+            expires: String::new(),
+        };
+        crate::files::write_json(
+            &root.join("manifest.json"),
+            &json!({
+                "schema":"majsoul-gallery-assets", "schema_version":2,
+                "categories":{"gifts":"gifts.json"}, "characters":{"200001":"character.json"}
+            }),
+        )?;
+        crate::files::write_json(
+            &root.join("gifts.json"),
+            &json!({
+                "definitions":{"303013":definition("303013",false),"303113":definition("303113",true)},
+                "item_assets":{"303013":"normal.png","303113":"locked.png"}
+            }),
+        )?;
+        let refs = json!([{"id":303013,"name":"香喷喷曲奇"},{"id":303113,"name":"香喷喷曲奇"}]);
+        crate::files::write_json(
+            &root.join("character.json"),
+            &json!({
+                "name":"一姬", "gifts":refs,
+                "contract_materials":[{"quantity":5,"items":refs}]
+            }),
+        )?;
+        let lib = Library::load(root)?;
+        assert_eq!(lib.items.len(), 2);
+        assert_eq!(lib.items[0].definition.id, "303013");
+        assert!(lib.items.iter().all(|item| item.icon.is_some()));
+        assert!(lib.items[1].definition.locked);
+        assert!(lib.items[0].search.matches("xppqq"));
+        assert_eq!(lib.characters[0].gifts.len(), 1);
+        assert_eq!(lib.characters[0].gifts[0].id, "303013");
+        assert_eq!(lib.characters[0].materials[0].items.len(), 2);
+        Ok(())
+    }
     #[test]
     fn decoration_aliases_share_filtering_and_display_names() {
         for category in [

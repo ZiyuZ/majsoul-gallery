@@ -50,6 +50,15 @@ impl AccountSnapshot {
                 }
             }
         }
+        for (i, item) in library.items.iter().enumerate() {
+            inventory
+                .entry(item.definition.id.clone())
+                .or_insert(if i % 4 == 3 {
+                    0
+                } else {
+                    (i as u64 * 7 + 3) % 23
+                });
+        }
         let character_order = library
             .characters
             .iter()

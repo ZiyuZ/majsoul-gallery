@@ -2,6 +2,7 @@ mod filters;
 use filters::{controls_panel, controls_row};
 mod cards;
 mod images;
+mod inventory;
 use images::app_icon;
 mod components;
 use cards::{collection_card, collection_image, collection_meta, collection_status, picture};
@@ -42,6 +43,7 @@ use std::{path::PathBuf, sync::Arc};
 enum Page {
     Home,
     Collection,
+    Inventory,
     Training,
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -125,6 +127,7 @@ pub struct Gallery {
     startup_checked: bool,
     export_state: share::ExportState,
     skin_export: skin_export::State,
+    inventory: inventory::State,
     login_username: Entity<InputState>,
     login_password: Entity<InputState>,
     saved_password_username: Option<String>,
@@ -265,6 +268,7 @@ impl Gallery {
             startup_checked: false,
             export_state: Default::default(),
             skin_export: Default::default(),
+            inventory: Default::default(),
             login_username,
             login_password,
             saved_password_username: remembered.then(|| preferences.login_username.clone()),
@@ -619,6 +623,8 @@ impl Render for Gallery {
             self.home(window, p, cx)
         } else if self.page == Page::Training {
             self.training(window, p, cx)
+        } else if self.page == Page::Inventory {
+            self.inventory_page(window, p, cx)
         } else {
             self.collection(window, p, cx)
         };

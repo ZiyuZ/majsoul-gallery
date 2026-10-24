@@ -6,7 +6,7 @@
   <p><strong>浏览角色与皮肤，整理收藏，规划契约材料。</strong></p>
 
   <p>
-    <a href="https://github.com/ZiyuZ/majsoul-gallery/releases"><img src="https://img.shields.io/badge/version-0.1.0-168575?style=flat-square" alt="版本 0.1.0"></a>
+    <a href="https://github.com/ZiyuZ/majsoul-gallery/releases"><img src="https://img.shields.io/github/v/release/ZiyuZ/majsoul-gallery?style=flat-square&amp;label=version&amp;color=168575" alt="最新发布版本"></a>
     <a href="https://github.com/ZiyuZ/majsoul-gallery/releases"><img src="https://img.shields.io/github/downloads/ZiyuZ/majsoul-gallery/total?style=flat-square" alt="下载总数"></a>
     <img src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square" alt="Windows">
     <a href="Cargo.toml"><img src="https://img.shields.io/badge/Rust-GPUI_Kit-dea584?style=flat-square" alt="Rust / GPUI Kit"></a>
@@ -48,6 +48,8 @@
 首次导入耗时取决于安装内容与磁盘速度。之后启动可直接使用，并在本地游戏资源更新时增量导入。素材来源和重新导入选项位于设置中。
 
 使用账号与密码登录后，角色、皮肤、装扮、星标、好感与库存会保存在本地，培养页支持按好感度和游戏内角色顺序排列。
+
+登录后可在道具页查看养成材料、礼物、券与卷轴、福袋与宝盒，默认显示已拥有的物品。普通与锁定礼物分别显示库存；道具详情可查看关联角色，契约计算会合计两种礼物。
 
 > 勾选“记住密码”后，应用会在本地明文保存可用于登录的密码派生值。请将它与密码同等保管。“自动登录”会同时启用记住密码。
 
@@ -103,7 +105,6 @@
 
 ## 后续计划
 
-- **道具**：增加独立菜单，按二级分类浏览道具与礼物。
 - **插画**：增加插画浏览功能。
 - **成就**：查看成就列表与完成进度。
 - **战绩（待定）**：考虑与牌谱查看一起规划，是否实现尚未确定。

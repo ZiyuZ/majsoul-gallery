@@ -225,7 +225,13 @@ GetCharacterInfo(id)：spot.character_spot 优先，否则 item_definition.chara
 
 物品资料来自 `item_definition.item`，主要使用 `id`、`name_chs`、`icon`、`category`、`type` 及到期信息。
 
-当前业务目录读取 `extendres/items/` 下的物品图标：category=1 的道具，以及 category=2、type=1–8 的礼物。八类礼物为曲奇、游戏机、美术品、酒、宝石、玩偶、同人志、裙子；品质及对应图片通过物品条目确定。许愿石、星之粉尘、宝玉、福袋、匣子同样按物品记录定位。
+物品目录读取 `item_definition.item` 中 category=1（通用道具）、2（礼物）、3（旧福袋）、6（活动道具）的记录。养成材料通过角色的 `star_5_material` 引用识别，券与卷轴、福袋与宝盒另行归类。物品定义独立于图片：部分旧活动条目引用的图片已不在本地安装中，仍可保留名称与 ID。
+
+礼物 type=1–8 分别为曲奇、游戏机、美术品、酒、宝石、玩偶、同人志、裙子；type=99 为特殊礼物。`iargs[0]` 是基础赠礼好感值，八类常规礼物中的 200、1000、5000 对应绿色、蓝色、紫色。蓝色和紫色礼物均有锁定版本，使用不同业务 ID，图标名带 `_limit`。库存按 ID 分别记录；契约按 `star_5_material` 的等价 ID 组合求和。
+
+图标通过 `extendres/items/` 下的本地图集配置和命名 Sprite 定位。缺少图集的条目保留定义，消费端可显示占位图。解析与分类见 [core/items.rs](../crates/majsoul-assets/src/core/items.rs)。
+
+主应用的道具展示规则位于 [inventory-filter.json](../src/assets/inventory-filter.json)，通过 `include_str!` 编译到可执行文件。`excluded_groups` 隐藏整类道具，`excluded_items` 按精确 ID 隐藏指定条目，值为维护时参考的名称。当前隐藏活动道具、其他道具、试炼券和红牛。规则在加载素材库时生效，修改后重新编译即可应用到已有素材库。原始物品定义与账号库存保留，契约计算继续按配置的等价 ID 组求和。
 
 `item.icon` 可以表示图集中的虚拟单图路径。例如 `extendRes/items/biscuit0.jpg` 需要通过图集配置找到页面和 Sprite，具体读取方法见第 5.2 节。
 

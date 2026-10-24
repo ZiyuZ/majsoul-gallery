@@ -239,7 +239,7 @@ mod tests {
             synced_at: std::time::SystemTime::now(),
             account: json!({"account_id":123,"nickname":"test","level":{"id":10403},"level3":{"id":20302}}),
             characters: json!({"character_sort":[200001],"other_character_sort":[200003,200002],"skins":[400103],"characters":[{"charid":200001,"level":2,"exp":4000,"skin":400103,"is_upgraded":true}]}),
-            bag: json!({"bag":{"items":[{"item_id":302002,"stack":10},{"item_id":302002,"stack":2}]}}),
+            bag: json!({"bag":{"items":[{"item_id":302002,"stack":10},{"item_id":302002,"stack":2},{"item_id":303013,"stack":3},{"item_id":303113,"stack":4}]}}),
             titles: json!({"title_list":[600001]}),
         };
         let snapshot = AccountSnapshot::from_api(&source, &library)?;
@@ -247,6 +247,21 @@ mod tests {
         assert!(snapshot.character("200001").favorite);
         assert!(snapshot.character("200001").contracted);
         assert_eq!(snapshot.inventory["302002"], 12);
+        assert_eq!(snapshot.inventory["303013"], 3);
+        assert_eq!(snapshot.inventory["303113"], 4);
+        assert_eq!(
+            snapshot.available(&crate::model::Requirement {
+                quantity: 5,
+                items: ["303013", "303113"]
+                    .map(|id| crate::model::Item {
+                        id: id.into(),
+                        name: String::new(),
+                        icon: None,
+                    })
+                    .into(),
+            }),
+            7
+        );
         assert_eq!(snapshot.profile.rank_four, "10401");
         assert_eq!(snapshot.profile.rank_three, "20301");
         assert_eq!(snapshot.character_order, ["200001", "200003", "200002"]);

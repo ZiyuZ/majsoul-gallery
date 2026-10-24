@@ -1,0 +1,7 @@
+{
+  "excluded_groups": ["activity", "other"],
+  "excluded_items": {
+    "300005": "试炼券",
+    "303995": "红牛"
+  }
+}

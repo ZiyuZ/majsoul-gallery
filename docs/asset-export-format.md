@@ -322,7 +322,7 @@ images 中当前输出 `full`、`portrait`、`avatar`：分别对应完整立绘
 
 ### 5.1 分类表的共同结构
 
-`items.json`、`gifts.json`、`decorations.json`、`illustrations.json`、`titles.json`、`ranks.json` 共用四个顶层对象：
+`items.json`、`gifts.json`、`decorations.json`、`illustrations.json`、`titles.json`、`ranks.json` 共用以下顶层对象：
 
 | 字段 | 类型 | 用途 |
 | --- | --- | --- |
@@ -330,8 +330,13 @@ images 中当前输出 `full`、`portrait`、`avatar`：分别对应完整立绘
 | assets | object<string, Asset> | 图片资料：路径、尺寸及可选来源信息 |
 | item_assets | object<string, string> | ID 到主图标路径的直接查找表 |
 | music | object<string, Music> | 音乐身份、名称和条目/图标的关联 |
+| definitions | object<string, ItemDefinition> | 道具与礼物的完整业务定义，以物品 ID 为键；其他分类为空 |
 
 没有内容的对象通常为空对象。item_assets 提供当前分类的 ID 查图接口，例如 ranks.json 使用段位记录 ID。消费端按分类建立查找表，保留 ID 的分类上下文。
+
+`ItemDefinition` 包含 `id`、`name`、`sort`、`group`、`gift_type`、`gift_bond`、`rarity`、`locked`、`description` 和 `expires`。`group` 为 `materials`、`gifts`、`vouchers`、`containers`、`activity` 或 `other`；礼物的 `rarity` 为 `green`、`blue`、`purple` 或 `special`，其他道具为 null。`gift_bond` 是基础赠礼好感值，`locked` 表示锁定礼物。`description` 和 `expires` 保存配置中的说明与到期时间，未配置时为空字符串。
+
+消费端从 definitions 建立道具目录，按同表的 `item_assets[ID]` 查图。缺少本地图标的道具仍可包含定义。普通与锁定礼物保留独立 ID，玩家库存分别关联；契约计算使用角色资料中的等价 ID 组。主应用导入时包含锁定礼物，角色喜好区仅展示普通图标。
 
 entries 的键通常为 `<内部类别>:<业务ID或资源键>`。内部类别与根分类键不同，例如 `tile-back` 属于 decorations，`loading` 属于 illustrations。该键作为整体标识保存，来源表通过 bindings 查询。
 

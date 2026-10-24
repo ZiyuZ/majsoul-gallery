@@ -316,6 +316,7 @@ impl Gallery {
         }
     }
     fn reset_account_filters(&mut self, connected: bool) {
+        self.inventory = inventory::State::default();
         self.only_owned = connected;
         self.only_favorites = false;
         self.contract_filter = ContractFilter::All;

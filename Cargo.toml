@@ -6,7 +6,7 @@ edition = "2024"
 [workspace]
 package = { version = "0.1.1" }
 members = ["crates/majsoul-api", "crates/majsoul-assets", "crates/xtask"]
-exclude = ["tools/majsoul-assetviewer/src-tauri"]
+exclude = ["tools/**", "vendor/**"]
 default-members = ["."]
 
 [dependencies]

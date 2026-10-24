@@ -8,6 +8,7 @@ mod diagnostics;
 mod discovery;
 mod files;
 mod importer;
+mod inventory_policy;
 mod model;
 mod report;
 mod search;

@@ -28,13 +28,29 @@ pub fn populate(names: &Names, catalog: &mut Catalog) {
             continue;
         }
         let kind = row["type"].as_i64().unwrap_or(0);
-        let gift = row["category"] == 2 && (1..=8).contains(&kind);
-        if row["category"] != 1 && !gift {
+        let gift = row["category"] == 2;
+        if !matches!(row["category"].as_i64(), Some(1 | 2 | 3 | 6)) {
+            continue;
+        }
+        // Old activity definitions can refer to removed standalone images.
+        // Their inventory definitions remain available even without a local icon.
+        let directory = icon
+            .to_lowercase()
+            .rsplit_once('/')
+            .map(|(dir, _)| dir.to_owned())
+            .unwrap_or_default();
+        if !names.icon_assets.keys().any(|path| {
+            path.starts_with(&format!("myassets/{directory}/")) && path.ends_with("_config.json")
+        }) {
             continue;
         }
         let category = if gift { "gift" } else { "item" };
-        let parent = if gift {
+        let parent = if gift && (1..=8).contains(&kind) {
             GIFTS[kind as usize - 1]
+        } else if gift {
+            "特殊礼物"
+        } else if row["category"] == 6 {
+            "活动道具"
         } else {
             match kind {
                 1 => "宝盒",

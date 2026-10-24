@@ -92,6 +92,7 @@ impl Gallery {
                 [
                     (Page::Home, text::HOME, IconName::House),
                     (Page::Collection, text::COLLECTION, IconName::LayoutGrid),
+                    (Page::Inventory, text::ITEMS, IconName::Package),
                     (Page::Training, text::TRAINING, IconName::Heart),
                 ]
                 .into_iter()
@@ -99,6 +100,7 @@ impl Gallery {
                     Button::new(match page {
                         Page::Home => "nav-home",
                         Page::Collection => "nav-collection",
+                        Page::Inventory => "nav-inventory",
                         Page::Training => "nav-training",
                     })
                     .ghost()

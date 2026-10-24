@@ -9,6 +9,7 @@ pub(super) enum Modal {
     Login,
     Export,
     SkinExport,
+    InventoryItem,
 }
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Stage {
@@ -257,6 +258,9 @@ impl Gallery {
     }
 
     pub(super) fn modal_content(&self, p: Palette, cx: &mut Context<Self>) -> AnyElement {
+        if self.modal == Some(Modal::InventoryItem) {
+            return self.inventory_item_dialog(p, cx);
+        }
         if self.modal == Some(Modal::SkinExport) {
             return self.skin_export_dialog(p, cx);
         }

@@ -2,6 +2,7 @@
 pub const APP_NAME: &str = "雀魂藏馆";
 pub const COLLECTION: &str = "收藏";
 pub const TRAINING: &str = "培养";
+pub const ITEMS: &str = "道具";
 pub const CHARACTERS: &str = "角色";
 pub const SKINS: &str = "皮肤";
 pub const DECORATIONS: &str = "装扮";

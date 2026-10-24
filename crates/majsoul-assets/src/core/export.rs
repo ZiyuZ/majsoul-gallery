@@ -1,4 +1,5 @@
 //! A portable, versioned gallery package. No Unity decoding is required by its consumer.
+use super::items::locked_icon as locked;
 use super::{Catalog, Library, Resource, names::Names, progress::Task};
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
@@ -39,10 +40,6 @@ impl Default for Options {
             direct_output: false,
         }
     }
-}
-fn locked(icon: &str) -> bool {
-    let icon = icon.to_lowercase();
-    icon.contains("_limit") || icon.contains("lock")
 }
 fn expired(row: &Value, now: i64) -> bool {
     if row["name_chs"]
@@ -409,6 +406,7 @@ fn export_scene(
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 struct Table {
+    definitions: BTreeMap<String, super::items::ItemDefinition>,
     entries: BTreeMap<String, Value>,
     assets: BTreeMap<String, Value>,
     item_assets: BTreeMap<String, String>,
@@ -1430,6 +1428,30 @@ pub fn run_with_options(
     }
     for (id, value) in character_data {
         write_json(&root, &format!("characters/{id}/character.json"), &value)?;
+    }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    for (id, definition) in super::items::definitions(names) {
+        let gift = definition.group == super::items::ItemGroup::Gifts;
+        if !types
+            .iter()
+            .any(|kind| kind == if gift { "gift" } else { "item" })
+            || (options.unlocked_gifts_only && definition.locked)
+            || (options.exclude_expired
+                && id
+                    .parse::<i64>()
+                    .ok()
+                    .and_then(|id| items.get(&id))
+                    .is_some_and(|row| expired(row, now)))
+        {
+            continue;
+        }
+        tables
+            .entry(if gift { "gifts" } else { "items" }.into())
+            .or_default()
+            .definitions
+            .insert(id, definition);
     }
     for (section, mut table) in tables {
         for (id, file) in &item_icons {

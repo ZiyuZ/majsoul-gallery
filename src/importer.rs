@@ -43,7 +43,7 @@ fn source_signature(source: &Path) -> Result<Value> {
         bundles.insert(name, json!([stamp.0, stamp.1]));
     }
     Ok(
-        json!({"format":1,"spine":cfg!(feature = "spine"),"source":source,"manifest":core::index::digest(fs::read(source.join("AssetBundleConfig.json"))?),"bundles":bundles}),
+        json!({"format":1,"inventory":1,"spine":cfg!(feature = "spine"),"source":source,"manifest":core::index::digest(fs::read(source.join("AssetBundleConfig.json"))?),"bundles":bundles}),
     )
 }
 fn read_resume(assets: &Path) -> Option<Value> {
@@ -168,6 +168,7 @@ pub fn worker(input: &Path, data: &Path, full: bool) -> Result<()> {
             overwrite: !reusable,
             link_cached_files: true,
             direct_output: true,
+            unlocked_gifts_only: false,
             ..Default::default()
         },
         &task,

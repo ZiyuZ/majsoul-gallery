@@ -292,6 +292,7 @@ impl Gallery {
                                 Page::Home => "返回主页",
                                 Page::Training => "返回培养",
                                 Page::Collection => "返回收藏",
+                                Page::Inventory => "返回道具",
                             },
                         )
                         .on_click(cx.listener(|this, _, _, cx| {

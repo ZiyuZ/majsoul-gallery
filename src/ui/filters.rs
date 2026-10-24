@@ -16,6 +16,24 @@ pub(super) fn controls_row() -> Div {
 }
 
 impl Gallery {
+    pub(super) fn card_size_controls(&self, p: Palette, cx: &mut Context<Self>) -> ButtonGroup {
+        choice_group("card-size").children(["小", "中", "大"].into_iter().enumerate().map(
+            |(size, label)| {
+                segment_button(
+                    format!("card-size-{size}"),
+                    label,
+                    self.card_size == size,
+                    p,
+                )
+                .w(px(40.))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.card_size = size;
+                    cx.notify();
+                }))
+            },
+        ))
+    }
+
     pub(super) fn owned_filter_button(
         &self,
         id: impl Into<ElementId>,
