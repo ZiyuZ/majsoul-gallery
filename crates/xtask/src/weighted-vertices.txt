@@ -1,0 +1,23 @@
+    // Weighted vertices can have more than the old six-influence allocation heuristic.
+    // Read the variable-length data into growable buffers and allocate its exact size.
+    let mut vertex_values = Vec::<c_float>::new();
+    let mut bone_values = Vec::<c_int>::new();
+    for _ in 0..vertexCount {
+        let bone_count = readVarint(input, 1);
+        bone_values.push(bone_count);
+        for _ in 0..bone_count {
+            bone_values.push(readVarint(input, 1));
+            vertex_values.push(readFloat(input) * scale);
+            vertex_values.push(readFloat(input) * scale);
+            vertex_values.push(readFloat(input));
+        }
+    }
+    let vertex_bytes = vertex_values.len() * std::mem::size_of::<c_float>();
+    let bone_bytes = bone_values.len() * std::mem::size_of::<c_int>();
+    *vertices = _spMalloc(vertex_bytes as c_ulong, std::ptr::null(), 0).cast();
+    *bones = _spMalloc(bone_bytes as c_ulong, std::ptr::null(), 0).cast();
+    if !vertex_values.is_empty() { std::ptr::copy_nonoverlapping(vertex_values.as_ptr(), *vertices, vertex_values.len()); }
+    if !bone_values.is_empty() { std::ptr::copy_nonoverlapping(bone_values.as_ptr(), *bones, bone_values.len()); }
+    *verticesLength = vertex_values.len() as c_int;
+    *bonesCount = bone_values.len() as c_int;
+    vertexCount << 1

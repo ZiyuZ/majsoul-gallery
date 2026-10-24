@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>雀魂角色喜好表</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#213547;font:14px/1.5 "Microsoft YaHei UI",sans-serif}main{max-width:1500px;margin:auto;padding:28px}h1{margin:0;font-size:26px}.summary{color:#617384}.head,.row{display:grid;grid-template-columns:minmax(0,1fr) 100px minmax(0,1fr);gap:16px}.head{text-align:center;color:#16826e}.head h2{font-size:16px}.row{padding:16px;background:white;border:1px solid #dce5ec;border-radius:12px;margin:10px 0;break-inside:avoid}.characters{display:flex;flex-wrap:wrap;gap:10px;align-content:center}.character{width:78px;text-align:center;font-size:12px}.character img{display:block;width:64px;height:64px;object-fit:contain;border:2px solid #dce5ec;margin:0 auto 5px;background:#f5f7fa}.character.limited img{border-color:#c99336}.character span{display:block;overflow-wrap:anywhere}.gift{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;text-align:center;font-size:12px}.gift img{width:60px;height:60px;object-fit:contain}.gift strong{font-weight:500}@media(max-width:600px){main{padding:12px}.head,.row{grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);gap:8px}.row{padding:10px}.character{width:64px}.character img{width:54px;height:54px}}@media print{@page{size:A4 landscape;margin:10mm}body{background:white}main{padding:0}.row{box-shadow:none}}
+[hidden]{display:none!important}
+.toolbar{position:sticky;top:12px;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:20px 0 14px;padding:14px 16px;background:#fff;border:1px solid #dce5ec;border-radius:12px;box-shadow:0 4px 14px #21354708}
+.search{display:flex;flex:1;align-items:center;gap:10px;min-width:220px;color:#617384}.search input{width:100%;min-width:0;padding:9px 12px;border:1px solid #dce5ec;border-radius:8px;font:inherit;color:#213547;background:#f9fafb}.search input:focus{outline:2px solid #16826e55;outline-offset:1px}
+.filters{display:flex;gap:4px}.toolbar button{border:1px solid #dce5ec;border-radius:8px;padding:8px 12px;background:#fff;color:#617384;font:inherit;cursor:pointer}.toolbar button:hover{background:#f4f6f8}.toolbar button[aria-pressed=true]{border-color:#16826e;background:#e1f3ee;color:#16826e}.toolbar button:focus-visible{outline:2px solid #16826e;outline-offset:2px}.empty{text-align:center;color:#617384;padding:40px 12px}
+@media print{.toolbar{display:none}.row[hidden],.character[hidden]{display:none!important}}
+</style></head><body><main><h1>雀魂角色喜好表</h1>
+<section id="report-controls" class="toolbar" aria-label="角色搜索与筛选" hidden>
+  <label class="search"><input id="character-search" type="search" placeholder="搜索角色、拼音、首字母或 ID…" aria-label="搜索角色、拼音、首字母或 ID" autocomplete="off"></label>
+  <div class="filters" role="group" aria-label="常驻与限定">
+    <button type="button" data-filter="all" aria-pressed="true">全部</button>
+    <button type="button" data-filter="permanent" aria-pressed="false">常驻</button>
+    <button type="button" data-filter="limited" aria-pressed="false">限定</button>
+  </div>
+  <button id="reset-filters" type="button">重置</button>
+</section>
