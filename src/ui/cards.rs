@@ -25,19 +25,57 @@ pub(super) fn collection_image(
     height: f32,
     p: Palette,
 ) -> AnyElement {
-    image_frame(path, div().w(px(width.max(1.))), height, p)
+    image_frame(
+        path,
+        div().w(px(width.max(1.))),
+        height,
+        p,
+        Corners::default(),
+    )
 }
 
-fn image_frame(path: Option<PathBuf>, area: Div, height: f32, p: Palette) -> AnyElement {
+/// Edge-to-edge cover inside a collection card's 1px border and 12px outer radius.
+pub(super) fn collection_cover(
+    path: Option<PathBuf>,
+    width: f32,
+    height: f32,
+    p: Palette,
+) -> AnyElement {
+    let corners = Corners {
+        top_left: px(11.),
+        top_right: px(11.),
+        bottom_left: px(0.),
+        bottom_right: px(0.),
+    };
+    image_frame(
+        path,
+        div().w(px(width.max(1.))).rounded_t(px(11.)),
+        height,
+        p,
+        corners,
+    )
+}
+
+fn image_frame(
+    path: Option<PathBuf>,
+    area: Div,
+    height: f32,
+    p: Palette,
+    corners: Corners<Pixels>,
+) -> AnyElement {
     let area = area
         .relative()
         .h(px(height.max(1.)))
         .flex_shrink_0()
         .bg(p.image)
+        .rounded_tl(corners.top_left)
+        .rounded_tr(corners.top_right)
+        .rounded_bl(corners.bottom_left)
+        .rounded_br(corners.bottom_right)
         .overflow_hidden();
     match path {
         Some(path) => area
-            .child(super::images::fitted_picture(path))
+            .child(super::images::fitted_picture(path, corners))
             .into_any_element(),
         None => area
             .flex()
@@ -88,5 +126,14 @@ pub(super) fn collection_status(owned: bool, contracted: bool, p: Palette) -> Di
     )
 }
 pub(super) fn picture(path: Option<PathBuf>, height: f32, p: Palette) -> AnyElement {
-    image_frame(path, div().w_full(), height, p)
+    image_frame(path, div().w_full(), height, p, Corners::default())
+}
+
+pub(super) fn picture_with_corners(
+    path: Option<PathBuf>,
+    height: f32,
+    p: Palette,
+    corners: Corners<Pixels>,
+) -> AnyElement {
+    image_frame(path, div().w_full(), height, p, corners)
 }

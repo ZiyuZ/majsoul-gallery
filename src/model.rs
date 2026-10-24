@@ -21,6 +21,73 @@ pub struct InventoryItem {
     pub search: SearchIndex,
 }
 #[derive(Clone, Debug)]
+pub struct Illustration {
+    pub id: String,
+    pub image_id: String,
+    pub unlock_items: Vec<String>,
+    pub name: String,
+    pub image: Option<PathBuf>,
+    pub thumbnail: Option<PathBuf>,
+    pub search: SearchIndex,
+    pub sort: i64,
+}
+impl Illustration {
+    pub fn year(&self) -> Option<u16> {
+        self.name
+            .rsplit_once('-')?
+            .1
+            .parse()
+            .ok()
+            .filter(|year| (2000..3000).contains(year))
+    }
+
+    pub fn is_guardian(&self) -> bool {
+        self.name.ends_with("的守护者")
+    }
+}
+
+fn illustration_entries(root: &Path, table: &Value) -> Vec<Illustration> {
+    let mut illustrations = Vec::new();
+    for entry in table["entries"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(_, entry)| entry)
+    {
+        let image = entry["images"]["full"]
+            .as_str()
+            .and_then(|file| resolve(root, file));
+        let thumbnail = entry["images"]["thumbnail"]
+            .as_str()
+            .and_then(|file| resolve(root, file));
+        let unlock_items = entry["unlock_items"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|value| value.as_u64().is_some_and(|id| id > 0))
+            .map(id)
+            .collect::<Vec<_>>();
+        let key = id(&entry["id"]);
+        let image_id = id(&entry["loading_image_id"]);
+        let name = text(entry, "name");
+        illustrations.push(Illustration {
+            search: SearchIndex::new(
+                &name,
+                &format!("{key} {image_id} {}", unlock_items.join(" ")),
+            ),
+            id: key,
+            image_id,
+            unlock_items,
+            name,
+            thumbnail: thumbnail.or_else(|| image.clone()),
+            image,
+            sort: entry["sort"].as_i64().unwrap_or(i64::MAX),
+        });
+    }
+    illustrations.sort_by_key(|item| (item.sort, item.id.clone()));
+    illustrations
+}
+#[derive(Clone, Debug)]
 pub struct Requirement {
     pub quantity: u64,
     pub items: Vec<Item>,
@@ -173,6 +240,7 @@ pub struct Library {
     pub ranks: BTreeMap<String, Item>,
     pub titles: Vec<Title>,
     pub items: Vec<InventoryItem>,
+    pub illustrations: Vec<Illustration>,
     pub status: String,
 }
 fn read(root: &Path, relative: &str) -> Result<Value> {
@@ -214,6 +282,7 @@ impl Library {
         let mut decorations = Vec::new();
         let mut ranks = BTreeMap::new();
         let mut titles = Vec::new();
+        let mut illustrations = Vec::new();
         let mut item_definitions =
             BTreeMap::<String, majsoul_assets::core::items::ItemDefinition>::new();
         if let Some(categories) = manifest["categories"].as_object() {
@@ -229,6 +298,9 @@ impl Library {
                 }
                 if kind == "titles" {
                     titles = title_entries(&root, &table);
+                }
+                if kind == "illustrations" {
+                    illustrations = illustration_entries(&root, &table);
                 }
                 if let Some(map) = table["item_assets"].as_object() {
                     for (key, file) in map {
@@ -432,6 +504,7 @@ impl Library {
             ranks,
             titles,
             items: inventory_items,
+            illustrations,
             status: text(&manifest, "status"),
         })
     }
@@ -485,6 +558,40 @@ pub fn initial_source(settings: &crate::settings::Settings) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn illustration_images_follow_explicit_roles_and_ignore_unrelated_assets() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        for file in ["thumb.png", "main.png", "emoji.png"] {
+            fs::write(temp.path().join(file), b"image")?;
+        }
+        let root = temp.path().canonicalize()?;
+        let table = serde_json::json!({
+            "entries":{"loading:307401":{"id":"307401","loading_image_id":201201,"sort":1002,"name":"春日","unlock_items":[307401,307402,0],"assets":["emoji.png","main.png","thumb.png"],"images":{"full":"main.png","thumbnail":"thumb.png"}}},
+            "assets":{"emoji.png":{"width":120,"height":120},"thumb.png":{"width":600,"height":338},"main.png":{"width":1920,"height":1080}}
+        });
+        let items = illustration_entries(&root, &table);
+        let item = &items[0];
+        assert_eq!(item.thumbnail, Some(root.join("thumb.png")));
+        assert_eq!(item.image, Some(root.join("main.png")));
+        assert_eq!(item.unlock_items, ["307401", "307402"]);
+        assert!(item.search.matches("cr"));
+        let mut seasonal = item.clone();
+        seasonal.name = "新年祈愿-2021".into();
+        // This illustration's internal ID starts with 20, but its displayed year is 2021.
+        assert_eq!(seasonal.year(), Some(2021));
+        assert!(!seasonal.is_guardian());
+        seasonal.name = "一姬的守护者".into();
+        assert!(seasonal.is_guardian());
+        assert_eq!(seasonal.year(), None);
+        let mut account = AccountSnapshot::default();
+        assert!(!account.owns_illustration(item));
+        account.inventory.insert("307402".into(), 1);
+        assert!(account.owns_illustration(item));
+        account.inventory.clear();
+        account.equipped_illustrations.insert("201201".into());
+        assert!(account.owns_illustration(item));
+        Ok(())
+    }
     #[test]
     fn inventory_definitions_keep_locked_stock_separate_and_character_gifts_unlocked() -> Result<()>
     {

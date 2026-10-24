@@ -157,7 +157,12 @@ impl Gallery {
                                             .flex_shrink_0()
                                             .rounded_md()
                                             .overflow_hidden()
-                                            .child(picture(c.thumbnail(), 28., p)),
+                                            .child(super::cards::picture_with_corners(
+                                                c.thumbnail(),
+                                                28.,
+                                                p,
+                                                Corners::all(px(6.)),
+                                            )),
                                     )
                                     .child(
                                         div()

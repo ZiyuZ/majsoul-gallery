@@ -43,7 +43,7 @@ fn source_signature(source: &Path) -> Result<Value> {
         bundles.insert(name, json!([stamp.0, stamp.1]));
     }
     Ok(
-        json!({"format":1,"inventory":1,"spine":cfg!(feature = "spine"),"source":source,"manifest":core::index::digest(fs::read(source.join("AssetBundleConfig.json"))?),"bundles":bundles}),
+        json!({"format":1,"inventory":1,"illustrations":2,"spine":cfg!(feature = "spine"),"source":source,"manifest":core::index::digest(fs::read(source.join("AssetBundleConfig.json"))?),"bundles":bundles}),
     )
 }
 fn read_resume(assets: &Path) -> Option<Value> {
@@ -205,6 +205,40 @@ pub fn run_worker(input: &Path, data: &Path, full: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "updates the locally imported package using the installed game"]
+    fn local_illustration_import_matches_configured_images() -> Result<()> {
+        let data =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(".local/target/debug/majsoul-gallery-data");
+        let assets = data.join("materials");
+        let baseline = read_resume(&assets).context("missing local baseline")?;
+        let source = Path::new(baseline["source"].as_str().context("missing source")?);
+        worker(source, &data, false)?;
+        let library = crate::model::Library::load(&assets)?;
+        ensure!(!library.illustrations.is_empty(), "missing illustrations");
+        ensure!(
+            library
+                .illustrations
+                .iter()
+                .all(|item| item.image.is_some() && item.thumbnail.is_some()),
+            "missing configured images"
+        );
+        let item = library
+            .illustrations
+            .iter()
+            .find(|item| item.name == "守梦夜明-2026")
+            .context("missing regression illustration")?;
+        assert_eq!(
+            image::image_dimensions(item.thumbnail.as_ref().unwrap())?,
+            (600, 338)
+        );
+        assert_eq!(
+            image::image_dimensions(item.image.as_ref().unwrap())?,
+            (1920, 1080)
+        );
+        assert_eq!(item.year(), Some(2026));
+        Ok(())
+    }
     #[test]
     #[ignore = "requires a locally imported package"]
     fn local_startup_check_uses_the_saved_baseline() -> Result<()> {

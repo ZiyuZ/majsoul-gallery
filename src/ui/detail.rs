@@ -405,7 +405,12 @@ impl Gallery {
                                                     this.skin = i;
                                                     this.reset_preview(cx);
                                                 }))
-                                                .child(picture(s.thumbnail(), 48., p))
+                                                .child(super::cards::picture_with_corners(
+                                                    s.thumbnail(),
+                                                    48.,
+                                                    p,
+                                                    Corners::all(px(6.)),
+                                                ))
                                                 .child(
                                                     div()
                                                         .absolute()

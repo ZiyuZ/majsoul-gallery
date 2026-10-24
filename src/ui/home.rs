@@ -121,7 +121,7 @@ impl Gallery {
                     h_flex()
                         .justify_between()
                         .items_center()
-                        .child(div().font_weight(FontWeight::SEMIBOLD).child("角色一览"))
+                        .child(div().font_weight(FontWeight::SEMIBOLD).child("角色"))
                         .child(
                             Button::new("home-characters")
                                 .outline()
@@ -156,7 +156,16 @@ impl Gallery {
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.open_character(index, cx)
                                     }))
-                                    .child(picture(character.thumbnail(), portrait_height, p))
+                                    .child(super::cards::picture_with_corners(
+                                        character.thumbnail(),
+                                        portrait_height,
+                                        p,
+                                        Corners {
+                                            top_left: px(7.),
+                                            top_right: px(7.),
+                                            ..Default::default()
+                                        },
+                                    ))
                                     .child(
                                         div()
                                             .px_3()
@@ -168,7 +177,7 @@ impl Gallery {
                             }),
                     ),
                 )
-                .child(div().font_weight(FontWeight::SEMIBOLD).child("装扮分类"));
+                .child(div().font_weight(FontWeight::SEMIBOLD).child("分类"));
         let categories = [
             "background",
             "frame",
@@ -181,6 +190,7 @@ impl Gallery {
             "call-effect",
             "stick",
             "bgm",
+            "illustrations",
         ];
         for row in categories.chunks(4) {
             body = body.child(h_flex().gap_3().children(row.iter().map(|&key| {
@@ -190,6 +200,33 @@ impl Gallery {
                     .iter()
                     .filter(|d| d.matches_category(key))
                     .collect::<Vec<_>>();
+                let (category, label, image, total, owned) = if key == "illustrations" {
+                    (
+                        Category::Illustrations,
+                        text::ILLUSTRATIONS,
+                        self.library
+                            .illustrations
+                            .first()
+                            .and_then(|item| item.thumbnail.clone()),
+                        self.library.illustrations.len(),
+                        self.library
+                            .illustrations
+                            .iter()
+                            .filter(|item| self.account.snapshot.owns_illustration(item))
+                            .count(),
+                    )
+                } else {
+                    (
+                        Category::Decorations,
+                        decoration_name(key),
+                        entries.first().and_then(|item| item.image.clone()),
+                        entries.len(),
+                        entries
+                            .iter()
+                            .filter(|item| self.account.snapshot.owns_decoration(item))
+                            .count(),
+                    )
+                };
                 h_flex()
                     .id(format!("home-deco-{key}"))
                     .w(px((available - 36.) / 4.))
@@ -203,34 +240,31 @@ impl Gallery {
                     .border_color(p.border)
                     .cursor_pointer()
                     .hover(move |style| style.border_color(p.accent).bg(p.accent_bg))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.browse_category(Category::Decorations, key, cx)
-                    }))
+                    .on_click(
+                        cx.listener(move |this, _, _, cx| this.browse_category(category, key, cx)),
+                    )
                     .child(
                         div()
                             .w(px(category_icon))
                             .flex_shrink_0()
                             .rounded_md()
                             .overflow_hidden()
-                            .child(picture(
-                                entries.first().and_then(|d| d.image.clone()),
+                            .child(super::cards::picture_with_corners(
+                                image,
                                 category_icon,
                                 p,
+                                Corners::all(px(6.)),
                             )),
                     )
                     .child(
                         v_flex()
                             .min_w_0()
                             .gap_1()
-                            .child(div().truncate().text_sm().child(decoration_name(key)))
+                            .child(div().truncate().text_sm().child(label))
                             .child(div().text_xs().text_color(p.muted).child(if connected {
-                                let owned = entries
-                                    .iter()
-                                    .filter(|item| self.account.snapshot.owns_decoration(item))
-                                    .count();
-                                format!("已拥有 {owned} / 共 {}", entries.len())
+                                format!("已拥有 {owned} / 共 {total}")
                             } else {
-                                format!("共 {} 项", entries.len())
+                                format!("共 {total} 项")
                             })),
                     )
             })));

@@ -419,6 +419,10 @@ entries 的键通常为 `<内部类别>:<业务ID或资源键>`。内部类别�
 | titles | title | 称号相关图片，可能包含不同用途 |
 | ranks | rank | 按 primary_icon 去重的大段位徽章，保留四麻和三麻差异 |
 
+插画 Entry 另含 `loading_image_id`（配置中的插画 ID）、`sort`（展示顺序）、`unlock_items`（可解锁这张插画的物品 ID 数组）及 `images`。`images.full` 和 `images.thumbnail` 是包根相对图片路径，分别按客户端配置的 `img_path`、`thumb_path` 匹配。卡片使用 thumbnail，预览和导出使用 full；缺少缩略图时可使用原图。同一目录可能混有表情等附加图片，消费端通过明确的 images 映射选图。
+
+`id` 保留条目的业务 ID。消费端使用 `sort` 排序，并将 `unlock_items` 与账号背包关联；账号的 `loading_image` 列表对应 `loading_image_id`，表示当前选用的插画。
+
 多图条目通过 Entry.assets 和 Asset.kind/role 区分用途。文件名中的 `-2` 表示同一条目下的附加图片。
 
 ### 5.4 音乐名称与图标

@@ -159,6 +159,7 @@ impl Gallery {
             .bottom_0()
             .size_full()
             .min_h_0()
+            .rounded(px(7.))
             .bg(match background {
                 PreviewBackground::Black => rgb(0x000000),
                 _ => rgb(0xffffff),
@@ -208,27 +209,65 @@ impl Gallery {
                         if background == PreviewBackground::Transparent {
                             let width = f32::from(bounds.size.width);
                             let height = f32::from(bounds.size.height);
-                            for row in 0..(height / 20.).ceil() as u32 {
-                                for column in 0..(width / 20.).ceil() as u32 {
+                            let rows = (height / 20.).ceil().max(1.) as u32;
+                            let columns = (width / 20.).ceil().max(1.) as u32;
+                            let cell_width = width / columns as f32;
+                            let cell_height = height / rows as f32;
+                            for row in 0..rows {
+                                for column in 0..columns {
                                     if (row + column) % 2 == 0 {
-                                        let x = column as f32 * 20.;
-                                        let y = row as f32 * 20.;
-                                        window.paint_quad(fill(
-                                            Bounds::new(
-                                                bounds.origin + point(px(x), px(y)),
-                                                size(
-                                                    px((width - x).min(20.)),
-                                                    px((height - y).min(20.)),
+                                        let x = column as f32 * cell_width;
+                                        let y = row as f32 * cell_height;
+                                        window.paint_quad(
+                                            fill(
+                                                Bounds::new(
+                                                    bounds.origin + point(px(x), px(y)),
+                                                    size(px(cell_width), px(cell_height)),
                                                 ),
-                                            ),
-                                            rgb(0xe4e7eb),
-                                        ));
+                                                rgb(0xe4e7eb),
+                                            )
+                                            .corner_radii(Corners {
+                                                top_left: px(if row == 0 && column == 0 {
+                                                    7.
+                                                } else {
+                                                    0.
+                                                }),
+                                                top_right: px(
+                                                    if row == 0 && column + 1 == columns {
+                                                        7.
+                                                    } else {
+                                                        0.
+                                                    },
+                                                ),
+                                                bottom_left: px(
+                                                    if row + 1 == rows && column == 0 {
+                                                        7.
+                                                    } else {
+                                                        0.
+                                                    },
+                                                ),
+                                                bottom_right: px(
+                                                    if row + 1 == rows && column + 1 == columns {
+                                                        7.
+                                                    } else {
+                                                        0.
+                                                    },
+                                                ),
+                                            }),
+                                        );
                                     }
                                 }
                             }
                         }
                         if let Some(frame) = frame {
-                            super::images::paint(bounds, frame, zoom, pan, window);
+                            super::images::paint(
+                                bounds,
+                                frame,
+                                zoom,
+                                pan,
+                                Corners::all(px(7.)),
+                                window,
+                            );
                         }
                     },
                 )

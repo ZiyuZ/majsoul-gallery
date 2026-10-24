@@ -73,6 +73,7 @@ impl AccountSnapshot {
             synced_at: Some(source.synced_at),
             owned_skins: ids(&source.characters["skins"]),
             owned_titles: ids(&source.titles["title_list"]),
+            equipped_illustrations: ids(&source.account["loading_image"]),
             ..Default::default()
         };
         for id in source.characters["character_sort"]
@@ -175,8 +176,9 @@ pub fn default_snapshot_path(data: &Path) -> Result<std::path::PathBuf> {
 
 pub fn load_snapshot(path: &Path) -> Result<AccountSnapshot> {
     let value: Value = serde_json::from_slice(&fs::read(path)?)?;
-    let snapshot: AccountSnapshot =
+    let mut snapshot: AccountSnapshot =
         serde_json::from_value(value["snapshot"].clone()).context("账号快照格式无效")?;
+    snapshot.equipped_illustrations = ids(&value["source"]["account"]["loading_image"]);
     ensure!(
         value["region"] == "cn" && number(&value["uid"]).to_string() == snapshot.profile.uid,
         "账号快照身份不匹配"
@@ -237,7 +239,7 @@ mod tests {
             region: "cn".into(),
             uid: 123,
             synced_at: std::time::SystemTime::now(),
-            account: json!({"account_id":123,"nickname":"test","level":{"id":10403},"level3":{"id":20302}}),
+            account: json!({"account_id":123,"nickname":"test","level":{"id":10403},"level3":{"id":20302},"loading_image":[201201]}),
             characters: json!({"character_sort":[200001],"other_character_sort":[200003,200002],"skins":[400103],"characters":[{"charid":200001,"level":2,"exp":4000,"skin":400103,"is_upgraded":true}]}),
             bag: json!({"bag":{"items":[{"item_id":302002,"stack":10},{"item_id":302002,"stack":2},{"item_id":303013,"stack":3},{"item_id":303113,"stack":4}]}}),
             titles: json!({"title_list":[600001]}),
@@ -247,6 +249,7 @@ mod tests {
         assert!(snapshot.character("200001").favorite);
         assert!(snapshot.character("200001").contracted);
         assert_eq!(snapshot.inventory["302002"], 12);
+        assert!(snapshot.equipped_illustrations.contains("201201"));
         assert_eq!(snapshot.inventory["303013"], 3);
         assert_eq!(snapshot.inventory["303113"], 4);
         assert_eq!(
@@ -268,6 +271,11 @@ mod tests {
         assert_eq!(snapshot.profile.rank_four_details, "3 星 · 0 分");
         assert_eq!(snapshot.owned_skins.len(), 3);
         snapshot.save_account(&source, temp.path(), 60)?;
+        assert!(
+            load_snapshot(&temp.path().join("accounts/cn/123/account.json"))?
+                .equipped_illustrations
+                .contains("201201")
+        );
         assert!(temp.path().join("accounts/cn/123/account.json").is_file());
         assert_eq!(
             load_snapshot(&default_snapshot_path(temp.path())?)?

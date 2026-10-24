@@ -171,6 +171,10 @@ impl Gallery {
     ) -> Div {
         controls_row()
             .w_full()
+            .when(
+                !training && self.category == Category::Illustrations,
+                |row| row.child(self.illustration_filters(p, cx)),
+            )
             .when(!training && self.category == Category::Skins, |row| {
                 row.child(
                     choice_group("skin-art-mode").children(

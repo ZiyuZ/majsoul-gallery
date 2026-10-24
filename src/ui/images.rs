@@ -34,6 +34,7 @@ pub(super) fn paint(
     image: Arc<RenderImage>,
     zoom: f32,
     pan: Point<Pixels>,
+    corners: Corners<Pixels>,
     window: &mut Window,
 ) {
     let extent = image.size(0);
@@ -47,18 +48,17 @@ pub(super) fn paint(
         zoom,
         pan,
     );
-    if let Err(error) = window.paint_image(bounds, destination, Corners::default(), image, 0, false)
-    {
+    if let Err(error) = window.paint_image(bounds, destination, corners, image, 0, false) {
         crate::diagnostics::record(format!("image paint failed: {error:#}"));
     }
 }
 
-pub(super) fn fitted_picture(path: PathBuf) -> impl IntoElement {
+pub(super) fn fitted_picture(path: PathBuf, corners: Corners<Pixels>) -> impl IntoElement {
     canvas(
         move |_, window, cx| load(&path, window, cx),
         move |bounds, image, window, _| {
             if let Some(image) = image {
-                paint(bounds, image, 1., point(px(0.), px(0.)), window);
+                paint(bounds, image, 1., point(px(0.), px(0.)), corners, window);
             }
         },
     )

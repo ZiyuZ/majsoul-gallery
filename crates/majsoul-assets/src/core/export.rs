@@ -139,6 +139,40 @@ pub struct Report {
     pub bundle_cache_hits: u64,
     pub bundle_loads: u64,
 }
+fn logical_image_path(path: &str) -> String {
+    let path = path.trim_start_matches('/').to_lowercase();
+    let path = path.strip_prefix("myassets/").unwrap_or(&path);
+    let Some((directory, file)) = path.rsplit_once('/') else {
+        return path.into();
+    };
+    if let Some((parent, locale)) = directory.rsplit_once('/')
+        && ["common", "chs", "chs_t", "jp", "en", "kr"].contains(&locale)
+    {
+        format!("{parent}/{file}")
+    } else {
+        path.into()
+    }
+}
+
+fn illustration_images(row: &Value, files: &[String], assets: &BTreeMap<String, Value>) -> Value {
+    let mut images = serde_json::Map::new();
+    for (role, field) in [("full", "img_path"), ("thumbnail", "thumb_path")] {
+        let Some(configured) = row[field].as_str().filter(|path| !path.is_empty()) else {
+            continue;
+        };
+        let configured = logical_image_path(configured);
+        if let Some(file) = files.iter().find(|file| {
+            assets
+                .get(*file)
+                .and_then(|asset| asset["source_path"].as_str())
+                .is_some_and(|path| logical_image_path(path) == configured)
+        }) {
+            images.insert(role.into(), json!(file));
+        }
+    }
+    Value::Object(images)
+}
+
 fn safe_name(text: &str) -> String {
     let value = text
         .chars()
@@ -1309,7 +1343,35 @@ pub fn run_with_options(
             skin_files.insert(file, skin);
         } else {
             let table = tables.entry(category).or_default();
-            table.entries.insert(entry_id.clone(),json!({"id":id,"name":group.label,"category":group.category,"bindings":group.bindings,"assets":refs}));
+            let mut entry = json!({"id":id,"name":group.label,"category":group.category,"bindings":group.bindings,"assets":refs});
+            if group.category == "loading" {
+                let path = format!("{}/", group.path);
+                if let Some(row) = names
+                    .rows("item_definition.loading_image")
+                    .iter()
+                    .find(|row| {
+                        ["img_path", "thumb_path"].iter().any(|field| {
+                            let raw = row[field]
+                                .as_str()
+                                .unwrap_or_default()
+                                .trim_start_matches('/')
+                                .to_lowercase();
+                            let normalized = if raw.starts_with("myassets/") {
+                                raw
+                            } else {
+                                format!("myassets/{raw}")
+                            };
+                            normalized.starts_with(&path)
+                        })
+                    })
+                {
+                    entry["loading_image_id"] = row["id"].clone();
+                    entry["sort"] = row["sort"].clone();
+                    entry["unlock_items"] = row["unlock_items"].clone();
+                    entry["images"] = illustration_images(row, &refs, &table.assets);
+                }
+            }
+            table.entries.insert(entry_id.clone(), entry);
             for binding in &group.bindings {
                 if matches!(group.category.as_str(), "bgm" | "riichi-bgm") {
                     table.music.insert(format!("{}:{}",binding.table,binding.id),json!({"id":binding.id,"name":binding.name,"table":binding.table,"entry":entry_id,"assets":refs}));
@@ -1503,6 +1565,38 @@ fn remove_item_icon(item: &mut Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn illustration_roles_match_configured_paths_instead_of_image_size() {
+        let config = json!({"img_path":"deco/loading_cg/260901/main/260901.jpg","thumb_path":"deco/loading_cg/260901/thumb/260901_thumb.jpg"});
+        let files = vec![
+            "emoji.png".into(),
+            "main.png".into(),
+            "thumb.png".into(),
+            "thumb-emoji.png".into(),
+        ];
+        let assets = BTreeMap::from([
+            (
+                "emoji.png".into(),
+                json!({"source_path":"myassets/deco/loading_cg/260901/main/common/1001.png"}),
+            ),
+            (
+                "main.png".into(),
+                json!({"source_path":"myassets/deco/loading_cg/260901/main/chs/260901.jpg"}),
+            ),
+            (
+                "thumb.png".into(),
+                json!({"source_path":"myassets/deco/loading_cg/260901/thumb/common/260901_thumb.jpg"}),
+            ),
+            (
+                "thumb-emoji.png".into(),
+                json!({"source_path":"myassets/deco/loading_cg/260901/thumb/common/3001.png"}),
+            ),
+        ]);
+        assert_eq!(
+            illustration_images(&config, &files, &assets),
+            json!({"full":"main.png","thumbnail":"thumb.png"})
+        );
+    }
     use crate::core::index::digest;
     #[test]
     fn managed_output_uses_exact_directory_and_rejects_game_directory() -> Result<()> {

@@ -101,6 +101,13 @@ impl AccountSnapshot {
                 .filter(|(i, _)| i % 4 != 3)
                 .flat_map(|(_, title)| title.ids.iter().cloned())
                 .collect(),
+            equipped_illustrations: library
+                .illustrations
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| i % 4 != 3)
+                .map(|(_, item)| item.image_id.clone())
+                .collect(),
         }
     }
 }

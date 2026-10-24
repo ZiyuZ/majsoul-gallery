@@ -7,6 +7,7 @@ enum Row {
     SkinGallery(Vec<(usize, usize)>),
     Decorations(Vec<usize>),
     Titles(Vec<usize>),
+    Illustrations(Vec<usize>),
 }
 
 impl Gallery {
@@ -30,7 +31,12 @@ impl Gallery {
         )
         .cursor_pointer()
         .on_click(cx.listener(move |this, _, _, cx| this.open_character(index, cx)))
-        .child(collection_image(thumbnail, width - 2., width * 0.95, p))
+        .child(super::cards::collection_cover(
+            thumbnail,
+            width - 2.,
+            width * 0.95,
+            p,
+        ))
         .child(
             v_flex()
                 .p_3()
@@ -118,6 +124,7 @@ impl Gallery {
             (Category::Skins, text::SKINS),
             (Category::Decorations, text::DECORATIONS),
             (Category::Titles, text::TITLES),
+            (Category::Illustrations, text::ILLUSTRATIONS),
         ];
         let mut controls = controls_panel(p)
             .child(
@@ -348,6 +355,28 @@ impl Gallery {
                     rows.push(Row::Decorations(chunk.iter().map(|(i, _)| *i).collect()));
                 }
             }
+            Category::Illustrations => {
+                let mut filtered = lib
+                    .illustrations
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, item)| {
+                        item.search.matches(&query)
+                            && self.illustration_filter.matches(item)
+                            && (!self.account.is_connected()
+                                || !self.only_owned
+                                || self.account.snapshot.owns_illustration(item))
+                    })
+                    .map(|(i, _)| i)
+                    .collect::<Vec<_>>();
+                total = filtered.len();
+                if self.descending {
+                    filtered.reverse();
+                }
+                for chunk in filtered.chunks(columns) {
+                    rows.push(Row::Illustrations(chunk.to_vec()));
+                }
+            }
             Category::Titles => {
                 let mut filtered = lib
                     .titles
@@ -389,6 +418,7 @@ impl Gallery {
             self.skin_full_art,
             self.character_order as u8
         );
+        let key = format!("{key}|{:?}", self.illustration_filter);
         if key != self.collection_key {
             self.collection_list.reset(rows.len());
             self.collection_list.scroll_to(ListOffset {
@@ -456,6 +486,14 @@ impl Gallery {
                                     )
                                 }))
                                 .into_any_element(),
+                            Row::Illustrations(indices) => h_flex()
+                                .gap_4()
+                                .pb_4()
+                                .items_start()
+                                .children(indices.iter().map(|&i| {
+                                    this.illustration_card(i, &lib.illustrations[i], width, p, cx)
+                                }))
+                                .into_any_element(),
                             Row::Titles(indices) => h_flex()
                                 .gap_4()
                                 .pb_4()
@@ -509,7 +547,7 @@ impl Gallery {
         } else {
             skin.thumbnail()
         };
-        let artwork = collection_image(path, art_width, art_height, p);
+        let artwork = super::cards::collection_cover(path, art_width, art_height, p);
         collection_card(
             format!("skin-card-{character_index}-{skin_index}"),
             width,

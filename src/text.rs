@@ -7,6 +7,7 @@ pub const CHARACTERS: &str = "角色";
 pub const SKINS: &str = "皮肤";
 pub const DECORATIONS: &str = "装扮";
 pub const TITLES: &str = "称号";
+pub const ILLUSTRATIONS: &str = "插画";
 pub const SETTINGS: &str = "设置";
 pub const EXPORT: &str = "导出图表与清单";
 pub const LOGIN: &str = "登录账号";

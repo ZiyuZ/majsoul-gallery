@@ -1,6 +1,7 @@
 mod filters;
 use filters::{controls_panel, controls_row};
 mod cards;
+mod illustrations;
 mod images;
 mod inventory;
 use images::app_icon;
@@ -52,6 +53,7 @@ enum Category {
     Skins,
     Decorations,
     Titles,
+    Illustrations,
 }
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 enum ContractFilter {
@@ -128,6 +130,9 @@ pub struct Gallery {
     export_state: share::ExportState,
     skin_export: skin_export::State,
     inventory: inventory::State,
+    illustration: Option<usize>,
+    illustration_filter: illustrations::Filter,
+    illustration_export: illustrations::ExportState,
     login_username: Entity<InputState>,
     login_password: Entity<InputState>,
     saved_password_username: Option<String>,
@@ -269,6 +274,9 @@ impl Gallery {
             export_state: Default::default(),
             skin_export: Default::default(),
             inventory: Default::default(),
+            illustration: None,
+            illustration_filter: Default::default(),
+            illustration_export: Default::default(),
             login_username,
             login_password,
             saved_password_username: remembered.then(|| preferences.login_username.clone()),
@@ -392,6 +400,7 @@ impl Gallery {
                         this.account.refresh_library(&lib);
                         this.library = Arc::new(lib);
                         this.selected = None;
+                        this.illustration = None;
                         this.skin = 0;
                         this.collection_key.clear();
                         this.modal = None;
@@ -456,6 +465,7 @@ impl Gallery {
     fn navigate(&mut self, page: Page, cx: &mut Context<Self>) {
         self.page = page;
         self.selected = None;
+        self.illustration = None;
 
         cx.notify();
     }
@@ -617,6 +627,8 @@ impl Render for Gallery {
                         .on_click(cx.listener(|this, _, _, cx| this.open_package(cx))),
                 )
                 .into_any_element()
+        } else if let Some(index) = self.illustration {
+            self.illustration_detail(index, p, cx)
         } else if let Some(index) = self.selected {
             self.detail(index, window, p, cx)
         } else if self.page == Page::Home {
@@ -631,6 +643,7 @@ impl Render for Gallery {
         let library_page_visible = !self.loading
             && self.error.is_none()
             && self.selected.is_none()
+            && self.illustration.is_none()
             && !self.library.root.as_os_str().is_empty();
         let body = div()
             .id("page-scroll")
@@ -640,7 +653,8 @@ impl Render for Gallery {
             .pt_4()
             .pb_2()
             .child(content);
-        let body = if library_page_visible || self.selected.is_some() {
+        let body = if library_page_visible || self.selected.is_some() || self.illustration.is_some()
+        {
             body.into_any_element()
         } else {
             body.overflow_y_scrollbar().into_any_element()

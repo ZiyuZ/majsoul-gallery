@@ -17,6 +17,9 @@ pub struct AccountSnapshot {
     pub inventory: BTreeMap<String, u64>,
     pub owned_skins: BTreeSet<String>,
     pub owned_titles: BTreeSet<String>,
+    #[serde(skip)]
+    // Derived from the raw account's currently selected loading images when a snapshot is loaded.
+    pub equipped_illustrations: BTreeSet<String>,
     pub owned_decorations: BTreeSet<String>,
     pub character_order: Vec<String>,
 }
@@ -83,6 +86,13 @@ impl AccountSnapshot {
 
     pub fn owns_title(&self, title: &Title) -> bool {
         title.ids.iter().any(|id| self.owned_titles.contains(id))
+    }
+    pub fn owns_illustration(&self, item: &crate::model::Illustration) -> bool {
+        self.equipped_illustrations.contains(&item.image_id)
+            || item
+                .unlock_items
+                .iter()
+                .any(|id| self.inventory.get(id).is_some_and(|count| *count > 0))
     }
     pub fn contract_materials_ready(&self, character: &Character) -> bool {
         self.characters
@@ -243,6 +253,7 @@ mod tests {
             characters: BTreeMap::new(),
             owned_skins: BTreeSet::new(),
             owned_titles: BTreeSet::new(),
+            equipped_illustrations: BTreeSet::new(),
             owned_decorations: BTreeSet::new(),
             inventory: BTreeMap::from([("1".into(), 3), ("2".into(), 4)]),
             character_order: vec![],
