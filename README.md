@@ -55,16 +55,17 @@
 
 按紫色礼物整理角色。HTML 版支持中文、拼音、首字母和 ID 搜索。
 
+### 网页版角色喜好
+
 **[在线查看角色喜好表](https://ziyuz.github.io/majsoul-gallery/gifts/)** · [下载 HTML](https://github.com/ZiyuZ/majsoul-gallery/raw/refs/heads/main/site/gifts/index.html)
 
 下载后用浏览器打开即可离线使用。
 
-<details>
-<summary>查看图片版角色喜好</summary>
+### 图片版角色喜好
 
 ![雀魂角色喜好表](docs/images/gift-chart.png)
 
-</details>
+### 导出喜好表
 
 应用侧栏的导出按钮可以生成喜好表和已拥有清单，支持 HTML 与 PNG，并可选择导出范围。
 
