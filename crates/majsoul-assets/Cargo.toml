@@ -1,6 +1,6 @@
 [package]
 name = "majsoul-assets"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 
 [dependencies]
@@ -14,5 +14,5 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
 tempfile = "3"
-time = { version = "0.3", features = ["parsing", "macros"] }
+time = { version = "0.3", features = ["macros", "parsing"] }
 unity_rs_core = { package = "unity-rs-core", git = "https://github.com/seiunx-dev/unity-rs", rev = "b3e509ed09fe6ff3a897d04ddb75eb5214482265" }

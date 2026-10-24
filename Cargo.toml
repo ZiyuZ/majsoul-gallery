@@ -1,45 +1,46 @@
 [package]
 name = "majsoul-gallery"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 
 [workspace]
+package = { version = "0.1.1" }
 members = ["crates/majsoul-api", "crates/majsoul-assets", "crates/xtask"]
 exclude = ["tools/majsoul-assetviewer/src-tauri"]
 default-members = ["."]
 
-[features]
-default = []
-spine = ["dep:rusty_spine", "dep:bytemuck", "dep:pollster", "dep:wgpu", "dep:webp-animation"]
-
 [dependencies]
 anyhow = "1"
 base64 = "0.22"
-clap = { version = "4.6.7", features = ["derive"] }
 bytemuck = { version = "1.25", features = ["derive"], optional = true }
+clap = { version = "4.6.7", features = ["derive"] }
 gpui-kit = "0.8.0"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
-libwebp-sys2 = { version = "0.2", default-features = false, features = ["std", "1_2", "static"] }
-majsoul-assets = { path = "crates/majsoul-assets" }
+libwebp-sys2 = { version = "0.2", default-features = false, features = ["1_2", "static", "std"] }
 majsoul-api = { path = "crates/majsoul-api" }
-tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
-uuid = { version = "1", features = ["v4"] }
+majsoul-assets = { path = "crates/majsoul-assets" }
 pinyin = { version = "0.11", default-features = false, features = ["plain"] }
 pollster = { version = "0.4", optional = true }
+resvg = "0.45.1"
 rfd = "0.17"
 rusty_spine = { version = "=0.8.0", optional = true }
-serde_json = "1"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tempfile = "3"
-wgpu = { version = "30", default-features = false, features = ["dx12", "std", "wgsl"], optional = true }
+tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+uuid = { version = "1", features = ["v4"] }
 webp-animation = { version = "0.10", default-features = false, features = ["static"], optional = true }
-resvg = "0.45.1"
+wgpu = { version = "30", default-features = false, features = ["dx12", "std", "wgsl"], optional = true }
 
 [build-dependencies]
 embed-resource = "3"
 
 [target."cfg(windows)".dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_System_Registry", "Win32_System_Console"] }
+windows-sys = { version = "0.61.2", features = ["Win32_System_Console", "Win32_System_Registry"] }
+
+[features]
+default = []
+spine = ["dep:bytemuck", "dep:pollster", "dep:rusty_spine", "dep:webp-animation", "dep:wgpu"]
 
 [profile.dev]
 debug = 0
@@ -56,6 +57,9 @@ opt-level = 2
 [profile.dev.package.image]
 opt-level = 2
 
+[profile.dev.package.libwebp-sys2]
+opt-level = 3
+
 [profile.dev.package.majsoul-assets]
 opt-level = 2
 
@@ -63,12 +67,6 @@ opt-level = 2
 opt-level = 2
 
 [profile.dev.package.png]
-opt-level = 2
-
-[profile.dev.package.libwebp-sys2]
-opt-level = 3
-
-[profile.dev.package.webp-animation]
 opt-level = 2
 
 [profile.dev.package.resvg]
@@ -81,6 +79,9 @@ opt-level = 2
 opt-level = 2
 
 [profile.dev.package.unity-rs-core]
+opt-level = 2
+
+[profile.dev.package.webp-animation]
 opt-level = 2
 
 [profile.release]
