@@ -9,24 +9,6 @@ pub(super) enum PreviewBackground {
     Transparent,
 }
 
-pub(super) fn fitted_bounds(
-    view: Bounds<Pixels>,
-    width: f32,
-    height: f32,
-    zoom: f32,
-    pan: Point<Pixels>,
-) -> Bounds<Pixels> {
-    let scale =
-        (f32::from(view.size.width) / width).min(f32::from(view.size.height) / height) * zoom;
-    let extent = size(px(width * scale), px(height * scale));
-    Bounds::new(
-        point(
-            view.origin.x + (view.size.width - extent.width) * 0.5 + pan.x,
-            view.origin.y + (view.size.height - extent.height) * 0.5 + pan.y,
-        ),
-        extent,
-    )
-}
 impl Gallery {
     fn active_preview_background(&self) -> PreviewBackground {
         self.preview_background.unwrap_or(if self.dark {
@@ -218,14 +200,8 @@ impl Gallery {
                 canvas(
                     move |_, window, cx| {
                         frame.clone().or_else(|| {
-                            path.as_ref().and_then(|path| {
-                                window
-                                    .use_asset::<ImageAssetLoader>(
-                                        &Resource::from(path.clone()),
-                                        cx,
-                                    )
-                                    .and_then(Result::ok)
-                            })
+                            path.as_ref()
+                                .and_then(|path| super::images::load(path, window, cx))
                         })
                     },
                     move |bounds, frame, window, _| {
@@ -252,26 +228,7 @@ impl Gallery {
                             }
                         }
                         if let Some(frame) = frame {
-                            let extent = frame.size(0);
-                            let dest = fitted_bounds(
-                                bounds,
-                                extent.width.0 as f32,
-                                extent.height.0 as f32,
-                                zoom,
-                                pan,
-                            );
-                            if let Err(error) = window.paint_image(
-                                bounds,
-                                dest,
-                                Corners::default(),
-                                frame,
-                                0,
-                                false,
-                            ) {
-                                crate::diagnostics::record(format!(
-                                    "preview paint failed: {error:#}"
-                                ));
-                            }
+                            super::images::paint(bounds, frame, zoom, pan, window);
                         }
                     },
                 )
@@ -283,38 +240,5 @@ impl Gallery {
         self.preview_scale = 1.;
         self.preview_pan = point(px(0.), px(0.));
         cx.notify();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::fitted_bounds;
-    use gpui_kit::{Bounds, point, px, size};
-    #[test]
-    fn fit_keeps_tall_and_wide_images_inside_viewport() {
-        for (view_w, view_h) in [(600., 400.), (258.4, 351.54), (130., 175.5)] {
-            let view = Bounds::new(point(px(10.), px(20.)), size(px(view_w), px(view_h)));
-            for (w, h) in [
-                (1000., 3000.),
-                (3000., 1000.),
-                (866., 1357.),
-                (463., 1346.),
-                (906., 1495.),
-            ] {
-                let result = fitted_bounds(view, w, h, 1., point(px(0.), px(0.)));
-                assert!(
-                    result.origin.x + px(0.01) >= view.origin.x
-                        && result.origin.y + px(0.01) >= view.origin.y
-                );
-                assert!(
-                    result.origin.x + result.size.width
-                        <= view.origin.x + view.size.width + px(0.01)
-                );
-                assert!(
-                    result.origin.y + result.size.height
-                        <= view.origin.y + view.size.height + px(0.01)
-                );
-            }
-        }
     }
 }

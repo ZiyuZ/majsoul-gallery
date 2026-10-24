@@ -41,6 +41,7 @@ pub struct Request {
     pub lossy: bool,
 }
 
+#[cfg(feature = "spine")]
 fn encoder(width: u32, height: u32, lossy: bool) -> Result<webp_animation::Encoder> {
     let config = if lossy {
         webp_animation::EncodingConfig::new_lossy(90.)
@@ -54,6 +55,37 @@ fn encoder(width: u32, height: u32, lossy: bool) -> Result<webp_animation::Encod
             ..Default::default()
         },
     )?)
+}
+
+fn static_webp(image: &RgbaImage, lossy: bool) -> Result<Vec<u8>> {
+    let width = image.width().try_into()?;
+    let height = image.height().try_into()?;
+    let stride = image
+        .width()
+        .checked_mul(4)
+        .context("图片宽度过大")?
+        .try_into()?;
+    let mut output = std::ptr::null_mut();
+    // RgbaImage owns a contiguous RGBA buffer with width * 4 bytes per row.
+    // libwebp allocates the output; it must be released with WebPFree.
+    let length = unsafe {
+        if lossy {
+            libwebp_sys::WebPEncodeRGBA(image.as_ptr(), width, height, stride, 90., &mut output)
+        } else {
+            libwebp_sys::WebPEncodeLosslessRGBA(image.as_ptr(), width, height, stride, &mut output)
+        }
+    };
+    struct WebpBuffer(*mut u8);
+    impl Drop for WebpBuffer {
+        fn drop(&mut self) {
+            // The pointer comes from libwebp, whose free function accepts null.
+            unsafe { libwebp_sys::WebPFree(self.0.cast()) };
+        }
+    }
+    let buffer = WebpBuffer(output);
+    ensure!(!buffer.0.is_null() && length > 0, "无法编码 WebP 图片");
+    // The successful encoder call guarantees length initialized output bytes.
+    Ok(unsafe { std::slice::from_raw_parts(buffer.0, length) }.to_vec())
 }
 
 #[cfg(any(feature = "spine", test))]
@@ -121,11 +153,7 @@ pub fn export(request: &Request, progress: &(dyn Fn(u32, u32) + Sync)) -> Result
                 image.write_to(&mut bytes, image::ImageFormat::Png)?;
                 bytes.into_inner()
             }
-            Format::Webp => {
-                let mut encoder = encoder(image.width(), image.height(), request.lossy)?;
-                encoder.add_frame(image.as_raw(), 0)?;
-                encoder.finalize(1000)?.to_vec()
-            }
+            Format::Webp => static_webp(&image, request.lossy)?,
         };
         crate::files::write_atomic(&request.output, &data)?;
         progress(1, 1);
@@ -283,13 +311,9 @@ mod tests {
         request.format = Format::Webp;
         request.output = directory.path().join("transparent.webp");
         export(&request, &|_, _| {})?;
-        let bytes = fs::read(&request.output)?;
-        let frame = webp_animation::Decoder::new(&bytes)?
-            .into_iter()
-            .next()
-            .context("missing transparent frame")?;
-        assert_eq!(&frame.data()[..4], &[90, 40, 210, 128]);
-        assert_eq!(frame.data()[7], 0);
+        let frame = image::open(&request.output)?.into_rgba8();
+        assert_eq!(frame.get_pixel(0, 0).0, [90, 40, 210, 128]);
+        assert_eq!(frame.get_pixel(1, 0)[3], 0);
         request.format = Format::Png;
         request.output = directory.path().join("white.png");
         request.white_background = true;
@@ -300,10 +324,15 @@ mod tests {
         request.format = Format::Webp;
         request.output = directory.path().join("result.webp");
         export(&request, &|_, _| {})?;
-        let bytes = fs::read(&request.output)?;
-        let decoder = webp_animation::Decoder::new(&bytes)?;
-        let frame = decoder.into_iter().next().context("missing frame")?;
-        assert_eq!(frame.data(), white.as_raw());
+        let frame = image::open(&request.output)?.into_rgba8();
+        assert_eq!(frame, white);
+        request.lossy = true;
+        request.white_background = false;
+        export(&request, &|_, _| {})?;
+        let frame = image::open(&request.output)?.into_rgba8();
+        assert_eq!(frame.dimensions(), pixels.dimensions());
+        assert_eq!(frame.get_pixel(0, 0)[3], 128);
+        assert_eq!(frame.get_pixel(1, 0)[3], 0);
         Ok(())
     }
 }

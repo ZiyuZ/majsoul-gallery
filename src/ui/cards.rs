@@ -1,40 +1,6 @@
 //! Shared collection card frame, ownership state and bounded artwork layout.
 use super::*;
 
-fn fitted_picture(path: PathBuf) -> impl IntoElement {
-    canvas(
-        move |_, window, cx| {
-            window
-                .use_asset::<ImageAssetLoader>(&Resource::from(path), cx)
-                .and_then(Result::ok)
-        },
-        move |bounds, image, window, _| {
-            if let Some(image) = image {
-                let extent = image.size(0);
-                if extent.width.0 == 0 || extent.height.0 == 0 {
-                    return;
-                }
-                let destination = super::preview::fitted_bounds(
-                    bounds,
-                    extent.width.0 as f32,
-                    extent.height.0 as f32,
-                    1.,
-                    point(px(0.), px(0.)),
-                );
-                if let Err(error) =
-                    window.paint_image(bounds, destination, Corners::default(), image, 0, false)
-                {
-                    crate::diagnostics::record(format!("card image paint failed: {error:#}"));
-                }
-            }
-        },
-    )
-    .absolute()
-    .top_0()
-    .left_0()
-    .size_full()
-}
-
 pub(super) fn collection_card(
     id: impl Into<ElementId>,
     width: f32,
@@ -59,15 +25,20 @@ pub(super) fn collection_image(
     height: f32,
     p: Palette,
 ) -> AnyElement {
-    let area = div()
+    image_frame(path, div().w(px(width.max(1.))), height, p)
+}
+
+fn image_frame(path: Option<PathBuf>, area: Div, height: f32, p: Palette) -> AnyElement {
+    let area = area
         .relative()
-        .w(px(width.max(1.)))
         .h(px(height.max(1.)))
         .flex_shrink_0()
         .bg(p.image)
         .overflow_hidden();
     match path {
-        Some(path) => area.child(fitted_picture(path)).into_any_element(),
+        Some(path) => area
+            .child(super::images::fitted_picture(path))
+            .into_any_element(),
         None => area
             .flex()
             .items_center()
@@ -117,21 +88,5 @@ pub(super) fn collection_status(owned: bool, contracted: bool, p: Palette) -> Di
     )
 }
 pub(super) fn picture(path: Option<PathBuf>, height: f32, p: Palette) -> AnyElement {
-    let body = div()
-        .relative()
-        .w_full()
-        .h(px(height))
-        .flex_shrink_0()
-        .bg(p.image)
-        .overflow_hidden();
-    match path {
-        Some(path) => body.child(fitted_picture(path)).into_any_element(),
-        None => body
-            .flex()
-            .items_center()
-            .justify_center()
-            .text_color(p.muted)
-            .child(Icon::new(IconName::Image).size_8())
-            .into_any_element(),
-    }
+    image_frame(path, div().w_full(), height, p)
 }

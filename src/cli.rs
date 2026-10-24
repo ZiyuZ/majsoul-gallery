@@ -132,12 +132,8 @@ pub fn run_if_requested(args: &[OsString]) -> Result<bool> {
                 None => crate::account::default_snapshot_path(&model::state_dir())
                     .context("请先登录并同步账号，或通过 --account 指定账号记录")?,
             };
-            crate::account::load_snapshot(&path).with_context(|| {
-                format!(
-                    "无法读取账号快照 {}；当前可在 Debug 构建使用 --demo-account 测试",
-                    model::display_path(&path)
-                )
-            })?
+            crate::account::load_snapshot(&path)
+                .with_context(|| format!("无法读取账号记录：{}", model::display_path(&path)))?
         };
         let included = |kind| args.types.is_empty() || args.types.contains(&kind);
         let options = OwnedOptions {

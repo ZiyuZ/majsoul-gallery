@@ -7,6 +7,27 @@ use std::{
     sync::mpsc,
 };
 
+#[derive(Clone, Default)]
+pub struct Progress {
+    pub label: String,
+    pub current: String,
+    pub done: usize,
+    pub total: usize,
+    pub percent: f32,
+}
+
+impl Progress {
+    pub fn from_event(event: &Value, fallback_label: &str) -> Self {
+        Self {
+            label: event["label"].as_str().unwrap_or(fallback_label).into(),
+            current: event["current"].as_str().unwrap_or_default().into(),
+            done: event["done"].as_u64().unwrap_or(0) as usize,
+            total: event["total"].as_u64().unwrap_or(0) as usize,
+            percent: event["percent"].as_f64().unwrap_or(0.) as f32,
+        }
+    }
+}
+
 pub struct Job {
     pub events: mpsc::Receiver<Value>,
     child: Option<Child>,

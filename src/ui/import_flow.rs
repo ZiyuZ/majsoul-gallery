@@ -20,7 +20,7 @@ pub(super) enum Stage {
 pub(super) struct ImportState {
     pub stage: Stage,
     pub candidates: Vec<PathBuf>,
-    pub progress: crate::importer::Progress,
+    pub progress: crate::task_process::Progress,
     pub message: Option<String>,
     pub full_reimport: bool,
 }
@@ -149,12 +149,12 @@ impl Gallery {
         self.animation_enabled = false;
         self.modal = Some(Modal::Import);
         self.import_state.message = None;
-        self.import_state.progress = crate::importer::Progress {
+        self.import_state.progress = crate::task_process::Progress {
             label: "准备本地素材导入".into(),
             current: crate::model::display_path(&path),
             ..Default::default()
         };
-        match crate::importer::Job::start(&path, &model::state_dir(), full) {
+        match crate::importer::start(&path, &model::state_dir(), full) {
             Ok(job) => {
                 self.import_job = Some(job);
                 self.import_state.stage = Stage::Running;
@@ -185,13 +185,8 @@ impl Gallery {
                     for event in events {
                         match event["type"].as_str() {
                             Some("progress") => {
-                                this.import_state.progress = crate::importer::Progress {
-                                    label: event["label"].as_str().unwrap_or_default().into(),
-                                    current: event["current"].as_str().unwrap_or_default().into(),
-                                    done: event["done"].as_u64().unwrap_or(0) as usize,
-                                    total: event["total"].as_u64().unwrap_or(0) as usize,
-                                    percent: event["percent"].as_f64().unwrap_or(0.) as f32,
-                                };
+                                this.import_state.progress =
+                                    crate::task_process::Progress::from_event(&event, "");
                             }
                             Some("complete") => {
                                 this.import_job = None;

@@ -175,27 +175,25 @@ impl Gallery {
                                         ),
                                     )
                                 })
-                                .child(
-                                    ButtonGroup::new("card-size")
-                                        .outline()
-                                        .compact()
-                                        .small()
-                                        .children(["小", "中", "大"].into_iter().enumerate().map(
-                                            |(size, label)| {
-                                                segment_button(
-                                                    format!("card-size-{size}"),
-                                                    label,
-                                                    self.card_size == size,
-                                                    p,
-                                                )
-                                                .w(px(40.))
-                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                .child(choice_group("card-size").children(
+                                    ["小", "中", "大"].into_iter().enumerate().map(
+                                        |(size, label)| {
+                                            segment_button(
+                                                format!("card-size-{size}"),
+                                                label,
+                                                self.card_size == size,
+                                                p,
+                                            )
+                                            .w(px(40.))
+                                            .on_click(
+                                                cx.listener(move |this, _, _, cx| {
                                                     this.card_size = size;
                                                     cx.notify();
-                                                }))
-                                            },
-                                        )),
-                                ),
+                                                }),
+                                            )
+                                        },
+                                    ),
+                                )),
                         ),
                 )
                 .child(div().h(px(1.)).w_full().bg(p.border))
@@ -392,7 +390,7 @@ impl Gallery {
             }
         }
         let key = format!(
-            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}|{}",
             self.category as u8,
             query,
             self.only_owned,
@@ -407,7 +405,8 @@ impl Gallery {
             self.only_favorites,
             self.descending,
             self.only_animated_skins,
-            self.skin_full_art
+            self.skin_full_art,
+            self.character_order as u8
         );
         if key != self.collection_key {
             self.collection_list.reset(rows.len());
@@ -499,20 +498,12 @@ impl Gallery {
                     .flex_1()
                     .size_full(),
                 )
-                .child(
-                    div()
-                        .absolute()
-                        .top_0()
-                        .bottom_0()
-                        .left_0()
-                        .right(px(-14.))
-                        .child(
-                            gpui_kit::component::scroll::Scrollbar::vertical(&self.collection_list)
-                                .id("collection-scrollbar")
-                                .mode(gpui_kit::component::scroll::ScrollbarMode::Scrolling)
-                                .viewport_from_layout(),
-                        ),
-                ),
+                .child(browsing::scrollbar_overlay(
+                    gpui_kit::component::scroll::Scrollbar::vertical(&self.collection_list)
+                        .id("collection-scrollbar")
+                        .mode(gpui_kit::component::scroll::ScrollbarMode::Scrolling)
+                        .viewport_from_layout(),
+                )),
         );
         if total == 0 {
             body = body.child(self.empty("没有找到匹配的收藏", "试试其他名称或筛选条件。", p));

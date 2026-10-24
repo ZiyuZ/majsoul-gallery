@@ -19,7 +19,7 @@ pub(super) struct State {
     job: Option<ExportJob>,
     picking: bool,
     generation: u64,
-    progress: crate::importer::Progress,
+    progress: crate::task_process::Progress,
     message: Option<String>,
 }
 impl Default for State {
@@ -108,44 +108,40 @@ impl Gallery {
                             .items_center()
                             .child("内容")
                             .child(
-                                ButtonGroup::new("skin-export-content")
-                                    .outline()
-                                    .compact()
-                                    .small()
-                                    .children([
-                                        segment_button(
-                                            "skin-export-still",
-                                            "静态立绘",
-                                            !state.animated,
-                                            p,
-                                        )
-                                        .on_click(
-                                            cx.listener(|this, _, _, cx| {
-                                                this.skin_export.animated = false;
-                                                #[cfg(feature = "spine")]
-                                                {
-                                                    this.skin_export.metadata_player = None;
-                                                }
-                                                cx.notify();
-                                            }),
-                                        ),
-                                        segment_button(
-                                            "skin-export-animation",
-                                            "动画",
-                                            state.animated,
-                                            p,
-                                        )
-                                        .disabled(skin.scene.is_none())
-                                        .on_click(
-                                            cx.listener(|this, _, _, cx| {
-                                                this.skin_export.animated = true;
-                                                this.skin_export.format = Format::Webp;
-                                                #[cfg(feature = "spine")]
-                                                this.load_skin_export_actions(cx);
-                                                cx.notify();
-                                            }),
-                                        ),
-                                    ]),
+                                choice_group("skin-export-content").children([
+                                    segment_button(
+                                        "skin-export-still",
+                                        "静态立绘",
+                                        !state.animated,
+                                        p,
+                                    )
+                                    .on_click(cx.listener(
+                                        |this, _, _, cx| {
+                                            this.skin_export.animated = false;
+                                            #[cfg(feature = "spine")]
+                                            {
+                                                this.skin_export.metadata_player = None;
+                                            }
+                                            cx.notify();
+                                        },
+                                    )),
+                                    segment_button(
+                                        "skin-export-animation",
+                                        "动画",
+                                        state.animated,
+                                        p,
+                                    )
+                                    .disabled(skin.scene.is_none())
+                                    .on_click(cx.listener(
+                                        |this, _, _, cx| {
+                                            this.skin_export.animated = true;
+                                            this.skin_export.format = Format::Webp;
+                                            #[cfg(feature = "spine")]
+                                            this.load_skin_export_actions(cx);
+                                            cx.notify();
+                                        },
+                                    )),
+                                ]),
                             ),
                     )
                 })
@@ -155,37 +151,33 @@ impl Gallery {
                         .items_center()
                         .child("格式")
                         .child(
-                            ButtonGroup::new("skin-export-format")
-                                .outline()
-                                .compact()
-                                .small()
-                                .children([
-                                    segment_button(
-                                        "skin-export-png",
-                                        "PNG",
-                                        state.format == Format::Png,
-                                        p,
-                                    )
-                                    .disabled(state.animated)
-                                    .on_click(cx.listener(
-                                        |this, _, _, cx| {
-                                            this.skin_export.format = Format::Png;
-                                            cx.notify();
-                                        },
-                                    )),
-                                    segment_button(
-                                        "skin-export-webp",
-                                        "WebP",
-                                        state.format == Format::Webp,
-                                        p,
-                                    )
-                                    .on_click(cx.listener(
-                                        |this, _, _, cx| {
-                                            this.skin_export.format = Format::Webp;
-                                            cx.notify();
-                                        },
-                                    )),
-                                ]),
+                            choice_group("skin-export-format").children([
+                                segment_button(
+                                    "skin-export-png",
+                                    "PNG",
+                                    state.format == Format::Png,
+                                    p,
+                                )
+                                .disabled(state.animated)
+                                .on_click(cx.listener(
+                                    |this, _, _, cx| {
+                                        this.skin_export.format = Format::Png;
+                                        cx.notify();
+                                    },
+                                )),
+                                segment_button(
+                                    "skin-export-webp",
+                                    "WebP",
+                                    state.format == Format::Webp,
+                                    p,
+                                )
+                                .on_click(cx.listener(
+                                    |this, _, _, cx| {
+                                        this.skin_export.format = Format::Webp;
+                                        cx.notify();
+                                    },
+                                )),
+                            ]),
                         ),
                 )
                 .child(
@@ -194,36 +186,32 @@ impl Gallery {
                         .items_center()
                         .child("背景")
                         .child(
-                            ButtonGroup::new("skin-export-background")
-                                .outline()
-                                .compact()
-                                .small()
-                                .children([
-                                    segment_button(
-                                        "skin-export-transparent",
-                                        "透明",
-                                        !state.white_background,
-                                        p,
-                                    )
-                                    .on_click(cx.listener(
-                                        |this, _, _, cx| {
-                                            this.skin_export.white_background = false;
-                                            cx.notify();
-                                        },
-                                    )),
-                                    segment_button(
-                                        "skin-export-white",
-                                        "白色",
-                                        state.white_background,
-                                        p,
-                                    )
-                                    .on_click(cx.listener(
-                                        |this, _, _, cx| {
-                                            this.skin_export.white_background = true;
-                                            cx.notify();
-                                        },
-                                    )),
-                                ]),
+                            choice_group("skin-export-background").children([
+                                segment_button(
+                                    "skin-export-transparent",
+                                    "透明",
+                                    !state.white_background,
+                                    p,
+                                )
+                                .on_click(cx.listener(
+                                    |this, _, _, cx| {
+                                        this.skin_export.white_background = false;
+                                        cx.notify();
+                                    },
+                                )),
+                                segment_button(
+                                    "skin-export-white",
+                                    "白色",
+                                    state.white_background,
+                                    p,
+                                )
+                                .on_click(cx.listener(
+                                    |this, _, _, cx| {
+                                        this.skin_export.white_background = true;
+                                        cx.notify();
+                                    },
+                                )),
+                            ]),
                         ),
                 );
             if state.format == Format::Webp {
@@ -232,28 +220,24 @@ impl Gallery {
                         .justify_between()
                         .items_center()
                         .child("压缩")
-                        .child(
-                            ButtonGroup::new("webp-compression")
-                                .outline()
-                                .compact()
-                                .small()
-                                .children([(false, "无损"), (true, "有损 · 90")].into_iter().map(
-                                    |(lossy, label)| {
-                                        segment_button(
-                                            format!("webp-lossy-{lossy}"),
-                                            label,
-                                            state.lossy == lossy,
-                                            p,
-                                        )
-                                        .on_click(
-                                            cx.listener(move |this, _, _, cx| {
-                                                this.skin_export.lossy = lossy;
-                                                cx.notify();
-                                            }),
-                                        )
-                                    },
-                                )),
-                        ),
+                        .child(choice_group("webp-compression").children(
+                            [(false, "无损"), (true, "有损 · 90")].into_iter().map(
+                                |(lossy, label)| {
+                                    segment_button(
+                                        format!("webp-lossy-{lossy}"),
+                                        label,
+                                        state.lossy == lossy,
+                                        p,
+                                    )
+                                    .on_click(cx.listener(
+                                        move |this, _, _, cx| {
+                                            this.skin_export.lossy = lossy;
+                                            cx.notify();
+                                        },
+                                    ))
+                                },
+                            ),
+                        )),
                 );
             }
             if state.animated {
@@ -304,52 +288,44 @@ impl Gallery {
                             .justify_between()
                             .items_center()
                             .child("长边尺寸")
-                            .child(
-                                ButtonGroup::new("skin-export-size")
-                                    .outline()
-                                    .compact()
-                                    .small()
-                                    .children([512, 1024, 1536, 2048].into_iter().map(|size| {
-                                        segment_button(
-                                            format!("skin-size-{size}"),
-                                            size.to_string(),
-                                            state.long_edge == size,
-                                            p,
-                                        )
-                                        .on_click(
-                                            cx.listener(move |this, _, _, cx| {
-                                                this.skin_export.long_edge = size;
-                                                cx.notify();
-                                            }),
-                                        )
-                                    })),
-                            ),
+                            .child(choice_group("skin-export-size").children(
+                                [512, 1024, 1536, 2048].into_iter().map(|size| {
+                                    segment_button(
+                                        format!("skin-size-{size}"),
+                                        size.to_string(),
+                                        state.long_edge == size,
+                                        p,
+                                    )
+                                    .on_click(cx.listener(
+                                        move |this, _, _, cx| {
+                                            this.skin_export.long_edge = size;
+                                            cx.notify();
+                                        },
+                                    ))
+                                }),
+                            )),
                     )
                     .child(
                         h_flex()
                             .justify_between()
                             .items_center()
                             .child("帧率")
-                            .child(
-                                ButtonGroup::new("skin-export-fps")
-                                    .outline()
-                                    .compact()
-                                    .small()
-                                    .children([24, 30, 60].into_iter().map(|fps| {
-                                        segment_button(
-                                            format!("skin-fps-{fps}"),
-                                            format!("{fps} FPS"),
-                                            state.fps == fps,
-                                            p,
-                                        )
-                                        .on_click(
-                                            cx.listener(move |this, _, _, cx| {
-                                                this.skin_export.fps = fps;
-                                                cx.notify();
-                                            }),
-                                        )
-                                    })),
-                            ),
+                            .child(choice_group("skin-export-fps").children(
+                                [24, 30, 60].into_iter().map(|fps| {
+                                    segment_button(
+                                        format!("skin-fps-{fps}"),
+                                        format!("{fps} FPS"),
+                                        state.fps == fps,
+                                        p,
+                                    )
+                                    .on_click(cx.listener(
+                                        move |this, _, _, cx| {
+                                            this.skin_export.fps = fps;
+                                            cx.notify();
+                                        },
+                                    ))
+                                }),
+                            )),
                     )
                     .child(
                         h_flex()
@@ -357,33 +333,24 @@ impl Gallery {
                             .items_center()
                             .child("时长")
                             .child(
-                                ButtonGroup::new("skin-export-duration")
-                                    .outline()
-                                    .compact()
-                                    .small()
-                                    .children(
-                                        [
-                                            (0, "一个周期"),
-                                            (5, "5 秒"),
-                                            (10, "10 秒"),
-                                            (15, "15 秒"),
-                                        ]
+                                choice_group("skin-export-duration").children(
+                                    [(0, "一个周期"), (5, "5 秒"), (10, "10 秒"), (15, "15 秒")]
                                         .into_iter()
-                                        .map(
-                                            |(seconds, label)| {
-                                                segment_button(
-                                                    format!("skin-seconds-{seconds}"),
-                                                    label,
-                                                    state.seconds == seconds,
-                                                    p,
-                                                )
-                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                        .map(|(seconds, label)| {
+                                            segment_button(
+                                                format!("skin-seconds-{seconds}"),
+                                                label,
+                                                state.seconds == seconds,
+                                                p,
+                                            )
+                                            .on_click(
+                                                cx.listener(move |this, _, _, cx| {
                                                     this.skin_export.seconds = seconds;
                                                     cx.notify();
-                                                }))
-                                            },
-                                        ),
-                                    ),
+                                                }),
+                                            )
+                                        }),
+                                ),
                             ),
                     );
             } else {
@@ -521,7 +488,7 @@ impl Gallery {
             self.skin_export.metadata_player = None;
         }
         self.skin_export.picking = true;
-        self.skin_export.progress = crate::importer::Progress {
+        self.skin_export.progress = crate::task_process::Progress {
             label: "选择保存位置".into(),
             ..Default::default()
         };
@@ -574,13 +541,8 @@ impl Gallery {
                     for event in events {
                         match event["type"].as_str() {
                             Some("progress") => {
-                                this.skin_export.progress = crate::importer::Progress {
-                                    label: event["label"].as_str().unwrap_or("正在导出").into(),
-                                    current: event["current"].as_str().unwrap_or("").into(),
-                                    done: event["done"].as_u64().unwrap_or(0) as usize,
-                                    total: event["total"].as_u64().unwrap_or(0) as usize,
-                                    percent: event["percent"].as_f64().unwrap_or(0.) as f32,
-                                }
+                                this.skin_export.progress =
+                                    crate::task_process::Progress::from_event(&event, "正在导出")
                             }
                             Some("complete") => {
                                 this.skin_export.job = None;

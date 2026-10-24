@@ -3906,6 +3906,7 @@ dependencies = [
  "embed-resource",
  "gpui-kit",
  "image",
+ "libwebp-sys2 0.2.0",
  "majsoul-api",
  "majsoul-assets",
  "pinyin",

@@ -18,20 +18,12 @@ pub(super) fn scroll_content(
                 .overflow_y_scroll()
                 .child(content),
         )
-        .child(
-            div()
-                .absolute()
-                .top_0()
-                .bottom_0()
-                .left_0()
-                .right(px(-14.))
-                .child(
-                    gpui_kit::component::scroll::Scrollbar::vertical(handle)
-                        .id(format!("{id}-scrollbar"))
-                        .mode(gpui_kit::component::scroll::ScrollbarMode::Scrolling)
-                        .viewport_from_layout(),
-                ),
-        )
+        .child(scrollbar_overlay(
+            gpui_kit::component::scroll::Scrollbar::vertical(handle)
+                .id(format!("{id}-scrollbar"))
+                .mode(gpui_kit::component::scroll::ScrollbarMode::Scrolling)
+                .viewport_from_layout(),
+        ))
 }
 pub(super) fn scrollbar_motion() -> gpui_kit::component::scroll::ScrollbarMotion {
     use gpui_kit::component::scroll::{ScrollbarEntrance, ScrollbarMotion};
@@ -43,4 +35,14 @@ pub(super) fn scrollbar_motion() -> gpui_kit::component::scroll::ScrollbarMotion
         .with_expand(Duration::ZERO)
         .with_entrance(ScrollbarEntrance::Fade)
         .with_thumb_hover_entrance(ScrollbarEntrance::Fade)
+}
+
+pub(super) fn scrollbar_overlay(scrollbar: impl IntoElement) -> Div {
+    div()
+        .absolute()
+        .top_0()
+        .bottom_0()
+        .left_0()
+        .right(px(-14.))
+        .child(scrollbar)
 }

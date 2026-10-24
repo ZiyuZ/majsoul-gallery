@@ -12,6 +12,16 @@ impl Gallery {
         let c = &lib.characters[index];
         let state = self.account.snapshot.character(&c.id);
         let skin = c.skins.get(self.skin).or_else(|| c.skins.first());
+        let visible_skins = c
+            .skins
+            .iter()
+            .enumerate()
+            .filter(|(_, skin)| {
+                !self.account.is_connected()
+                    || !self.only_owned
+                    || self.account.snapshot.owns_skin(skin)
+            })
+            .collect::<Vec<_>>();
         #[cfg(feature = "spine")]
         let playing = self.animation_enabled && skin.is_some_and(|s| s.scene.is_some());
         #[cfg(not(feature = "spine"))]
@@ -81,12 +91,16 @@ impl Gallery {
                     .when(c.collaboration, |d| d.child(badge("联动", p.gold, p.panel))),
             );
         if let Some(skin) = skin {
-            side = side.child(
+            side = side.child(collection_meta(
                 div()
+                    .truncate()
                     .text_sm()
-                    .text_color(p.muted)
                     .child(skin.display_name(&c.name).to_owned()),
-            );
+                self.account
+                    .is_connected()
+                    .then(|| collection_status(self.account.snapshot.owns_skin(skin), false, p)),
+                p,
+            ));
         }
         side =
             side.when(self.account.is_connected(), |side| {
@@ -289,6 +303,9 @@ impl Gallery {
                         h_flex()
                             .gap_2()
                             .items_center()
+                            .when(self.account.is_connected(), |row| {
+                                row.child(self.owned_filter_button("detail-owned-filter", p, cx))
+                            })
                             .child(
                                 Button::new("export-skin")
                                     .outline()
@@ -362,26 +379,83 @@ impl Gallery {
                                         .gap_2()
                                         .h_full()
                                         .items_center()
-                                        .children(c.skins.iter().enumerate().map(|(i, s)| {
-                                            v_flex()
+                                        .children(visible_skins.iter().map(|&(i, s)| {
+                                            let owned = self.account.snapshot.owns_skin(s);
+                                            let connected = self.account.is_connected();
+                                            let tooltip = if connected {
+                                                format!(
+                                                    "{} · {}",
+                                                    s.display_name(&c.name),
+                                                    if owned { text::OWNED } else { "未拥有" }
+                                                )
+                                            } else {
+                                                s.display_name(&c.name).to_owned()
+                                            };
+                                            div()
                                                 .id(("skin-choice", i))
-                                                .w(px(48.))
+                                                .group("skin-choice")
+                                                .relative()
+                                                .size(px(48.))
                                                 .flex_shrink_0()
                                                 .rounded_md()
                                                 .overflow_hidden()
-                                                .border_2()
-                                                .border_color(if self.skin == i {
-                                                    p.accent
-                                                } else {
-                                                    p.border
-                                                })
                                                 .cursor_pointer()
                                                 .on_click(cx.listener(move |this, _, _, cx| {
                                                     this.skin = i;
-                                                    cx.notify();
+                                                    this.reset_preview(cx);
                                                 }))
                                                 .child(picture(s.thumbnail(), 48., p))
+                                                .child(
+                                                    div()
+                                                        .absolute()
+                                                        .top_0()
+                                                        .left_0()
+                                                        .size_full()
+                                                        .rounded_md()
+                                                        .border_2()
+                                                        .border_color(if self.skin == i {
+                                                            p.accent
+                                                        } else {
+                                                            p.border
+                                                        })
+                                                        .group_hover("skin-choice", |style| {
+                                                            style.border_color(p.accent)
+                                                        }),
+                                                )
+                                                .when(connected && owned, |card| {
+                                                    card.child(
+                                                        div()
+                                                            .absolute()
+                                                            .bottom_1()
+                                                            .right_1()
+                                                            .size(px(14.))
+                                                            .rounded_full()
+                                                            .bg(p.accent)
+                                                            .text_color(rgb(0xffffff))
+                                                            .flex()
+                                                            .items_center()
+                                                            .justify_center()
+                                                            .child(
+                                                                Icon::new(IconName::Check)
+                                                                    .size(px(10.)),
+                                                            ),
+                                                    )
+                                                })
+                                                .tooltip(move |window, cx| {
+                                                    gpui_kit::component::tooltip::Tooltip::new(
+                                                        tooltip.clone(),
+                                                    )
+                                                    .build(window, cx)
+                                                })
                                         }))
+                                        .when(visible_skins.is_empty(), |row| {
+                                            row.child(
+                                                div()
+                                                    .text_xs()
+                                                    .text_color(p.muted)
+                                                    .child("没有已拥有的皮肤"),
+                                            )
+                                        })
                                         .overflow_x_scrollbar(),
                                 ),
                             ),

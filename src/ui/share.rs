@@ -63,29 +63,25 @@ impl Gallery {
                     .items_center()
                     .child("格式")
                     .child(
-                        ButtonGroup::new("report-format")
-                            .outline()
-                            .compact()
-                            .small()
-                            .children(
-                                [(false, "HTML · 可搜索"), (true, "PNG · 紧凑图表")]
-                                    .into_iter()
-                                    .map(|(png, label)| {
-                                        segment_button(
-                                            format!("report-png-{png}"),
-                                            label,
-                                            self.export_state.png == png,
-                                            p,
-                                        )
-                                        .disabled(busy)
-                                        .on_click(
-                                            cx.listener(move |this, _, _, cx| {
-                                                this.export_state.png = png;
-                                                cx.notify();
-                                            }),
-                                        )
-                                    }),
-                            ),
+                        choice_group("report-format").children(
+                            [(false, "HTML · 可搜索"), (true, "PNG · 紧凑图表")]
+                                .into_iter()
+                                .map(|(png, label)| {
+                                    segment_button(
+                                        format!("report-png-{png}"),
+                                        label,
+                                        self.export_state.png == png,
+                                        p,
+                                    )
+                                    .disabled(busy)
+                                    .on_click(cx.listener(
+                                        move |this, _, _, cx| {
+                                            this.export_state.png = png;
+                                            cx.notify();
+                                        },
+                                    ))
+                                }),
+                        ),
                     ),
             )
             .child(

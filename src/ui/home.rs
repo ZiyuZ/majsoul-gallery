@@ -223,12 +223,15 @@ impl Gallery {
                             .min_w_0()
                             .gap_1()
                             .child(div().truncate().text_sm().child(decoration_name(key)))
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(p.muted)
-                                    .child(format!("{} 项", entries.len())),
-                            ),
+                            .child(div().text_xs().text_color(p.muted).child(if connected {
+                                let owned = entries
+                                    .iter()
+                                    .filter(|item| self.account.snapshot.owns_decoration(item))
+                                    .count();
+                                format!("已拥有 {owned} / 共 {}", entries.len())
+                            } else {
+                                format!("共 {} 项", entries.len())
+                            })),
                     )
             })));
         }

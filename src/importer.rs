@@ -12,26 +12,13 @@ use std::{
     },
 };
 
-#[derive(Clone, Default)]
-pub struct Progress {
-    pub label: String,
-    pub current: String,
-    pub done: usize,
-    pub total: usize,
-    pub percent: f32,
-}
-
-pub use crate::task_process::Job;
-
-impl Job {
-    pub fn start(input: &Path, data: &Path, full: bool) -> Result<Self> {
-        let mut command = Command::new(std::env::current_exe()?);
-        command.arg("--import-worker").arg(input).arg(data);
-        if full {
-            command.arg("--full");
-        }
-        Self::spawn(command)
+pub fn start(input: &Path, data: &Path, full: bool) -> Result<crate::task_process::Job> {
+    let mut command = Command::new(std::env::current_exe()?);
+    command.arg("--import-worker").arg(input).arg(data);
+    if full {
+        command.arg("--full");
     }
+    crate::task_process::Job::spawn(command)
 }
 
 fn progress_label(label: &str) -> String {

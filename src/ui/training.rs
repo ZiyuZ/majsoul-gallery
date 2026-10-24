@@ -7,61 +7,53 @@ impl Gallery {
                 controls_row()
                     .justify_end()
                     .child(
-                        ButtonGroup::new("bond-view")
-                            .outline()
-                            .compact()
-                            .small()
-                            .children(
-                                [
-                                    (true, "爱心", IconName::Heart),
-                                    (false, "进度", IconName::Gauge),
-                                ]
-                                .into_iter()
-                                .map(|(hearts, label, icon)| {
-                                    segment_button(
-                                        format!("bond-view-{hearts}"),
-                                        label,
-                                        self.bond_hearts == hearts,
-                                        p,
-                                    )
-                                    .icon(icon)
-                                    .on_click(cx.listener(
-                                        move |this, _, _, cx| {
-                                            this.bond_hearts = hearts;
-                                            cx.notify();
-                                        },
-                                    ))
-                                }),
-                            ),
+                        choice_group("bond-view").children(
+                            [
+                                (true, "爱心", IconName::Heart),
+                                (false, "进度", IconName::Gauge),
+                            ]
+                            .into_iter()
+                            .map(|(hearts, label, icon)| {
+                                segment_button(
+                                    format!("bond-view-{hearts}"),
+                                    label,
+                                    self.bond_hearts == hearts,
+                                    p,
+                                )
+                                .icon(icon)
+                                .on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        this.bond_hearts = hearts;
+                                        cx.notify();
+                                    },
+                                ))
+                            }),
+                        ),
                     )
                     .child(
-                        ButtonGroup::new("training-columns")
-                            .outline()
-                            .compact()
-                            .small()
-                            .children(
-                                [
-                                    (1, "一列", IconName::Rows2),
-                                    (2, "两列", IconName::Columns2),
-                                    (3, "三列", IconName::Columns3),
-                                ]
-                                .into_iter()
-                                .map(|(columns, label, icon)| {
-                                    segment_button(
-                                        format!("training-columns-{columns}"),
-                                        label,
-                                        self.training_columns == columns,
-                                        p,
-                                    )
-                                    .icon(icon)
-                                    .on_click(cx.listener(
-                                        move |this, _, _, cx| {
-                                            this.training_columns = columns;
-                                            cx.notify();
-                                        },
-                                    ))
-                                }),
-                            ),
+                        choice_group("training-columns").children(
+                            [
+                                (1, "一列", IconName::Rows2),
+                                (2, "两列", IconName::Columns2),
+                                (3, "三列", IconName::Columns3),
+                            ]
+                            .into_iter()
+                            .map(|(columns, label, icon)| {
+                                segment_button(
+                                    format!("training-columns-{columns}"),
+                                    label,
+                                    self.training_columns == columns,
+                                    p,
+                                )
+                                .icon(icon)
+                                .on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        this.training_columns = columns;
+                                        cx.notify();
+                                    },
+                                ))
+                            }),
+                        ),
                     ),
             )
             .child(div().h(px(1.)).w_full().bg(p.border))

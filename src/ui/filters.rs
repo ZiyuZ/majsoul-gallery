@@ -16,6 +16,35 @@ pub(super) fn controls_row() -> Div {
 }
 
 impl Gallery {
+    pub(super) fn owned_filter_button(
+        &self,
+        id: impl Into<ElementId>,
+        p: Palette,
+        cx: &mut Context<Self>,
+    ) -> Button {
+        filter_chip(id, text::OWNED, self.only_owned, p)
+            .icon(IconName::Check)
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.only_owned = !this.only_owned;
+                if this.only_owned
+                    && let Some(character) =
+                        this.selected.and_then(|i| this.library.characters.get(i))
+                    && !character
+                        .skins
+                        .get(this.skin)
+                        .is_some_and(|skin| this.account.snapshot.owns_skin(skin))
+                    && let Some(index) = character
+                        .skins
+                        .iter()
+                        .position(|skin| this.account.snapshot.owns_skin(skin))
+                {
+                    this.skin = index;
+                    this.reset_preview(cx);
+                }
+                cx.notify();
+            }))
+    }
+
     pub(super) fn character_matches(&self, c: &Character) -> bool {
         (self.character_sex == 0 || c.sex == self.character_sex)
             && self
@@ -55,14 +84,7 @@ impl Gallery {
                     })
             })
             .when(self.account.is_connected(), |row| {
-                row.child(
-                    filter_chip("owned-filter", text::OWNED, self.only_owned, p)
-                        .icon(IconName::Check)
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.only_owned = !this.only_owned;
-                            cx.notify();
-                        })),
-                )
+                row.child(self.owned_filter_button("owned-filter", p, cx))
             })
             .when(characters && self.account.is_connected(), |row| {
                 use crate::account::CharacterOrder;
@@ -93,7 +115,6 @@ impl Gallery {
                                         .on_click(move |_, _, cx| {
                                             let _ = entity.update(cx, |this, cx| {
                                                 this.character_order = order;
-                                                this.collection_key.clear();
                                                 cx.notify();
                                             });
                                         }),
@@ -134,32 +155,28 @@ impl Gallery {
             .w_full()
             .when(!training && self.category == Category::Skins, |row| {
                 row.child(
-                    ButtonGroup::new("skin-art-mode")
-                        .outline()
-                        .compact()
-                        .small()
-                        .children(
-                            [
-                                (false, "头像", IconName::UserRound),
-                                (true, "立绘", IconName::Image),
-                            ]
-                            .into_iter()
-                            .map(|(full, label, icon)| {
-                                segment_button(
-                                    format!("skin-full-art-{full}"),
-                                    label,
-                                    self.skin_full_art == full,
-                                    p,
-                                )
-                                .icon(icon)
-                                .on_click(cx.listener(
-                                    move |this, _, _, cx| {
-                                        this.skin_full_art = full;
-                                        cx.notify();
-                                    },
-                                ))
-                            }),
-                        ),
+                    choice_group("skin-art-mode").children(
+                        [
+                            (false, "头像", IconName::UserRound),
+                            (true, "立绘", IconName::Image),
+                        ]
+                        .into_iter()
+                        .map(|(full, label, icon)| {
+                            segment_button(
+                                format!("skin-full-art-{full}"),
+                                label,
+                                self.skin_full_art == full,
+                                p,
+                            )
+                            .icon(icon)
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.skin_full_art = full;
+                                    cx.notify();
+                                },
+                            ))
+                        }),
+                    ),
                 )
                 .when(cfg!(feature = "spine"), |row| {
                     row.child(
@@ -174,42 +191,38 @@ impl Gallery {
             })
             .when(training, |row| {
                 row.child(
-                    ButtonGroup::new("contract-filter")
-                        .outline()
-                        .compact()
-                        .small()
-                        .children(
-                            [
-                                (ContractFilter::All, "全部"),
-                                (ContractFilter::Contracted, "已契约"),
-                                (ContractFilter::Uncontracted, "未契约"),
-                                (ContractFilter::Ready, text::CONTRACT_READY),
-                                (ContractFilter::Full, text::FULL_BOND),
-                            ]
-                            .into_iter()
-                            .enumerate()
-                            .map(|(i, (filter, label))| {
-                                segment_button(
-                                    format!("contract-{i}"),
-                                    label,
-                                    self.contract_filter == filter,
-                                    p,
-                                )
-                                .disabled(!self.account.is_connected())
-                                .when(filter == ContractFilter::Full, |b| {
-                                    b.tooltip("累计好感达到 88,000，包含已契约角色")
-                                })
-                                .when(filter == ContractFilter::Ready, |b| {
-                                    b.tooltip("已拥有、未契约、满好感且契约材料齐备")
-                                })
-                                .on_click(cx.listener(
-                                    move |this, _, _, cx| {
-                                        this.contract_filter = filter;
-                                        cx.notify();
-                                    },
-                                ))
-                            }),
-                        ),
+                    choice_group("contract-filter").children(
+                        [
+                            (ContractFilter::All, "全部"),
+                            (ContractFilter::Contracted, "已契约"),
+                            (ContractFilter::Uncontracted, "未契约"),
+                            (ContractFilter::Ready, text::CONTRACT_READY),
+                            (ContractFilter::Full, text::FULL_BOND),
+                        ]
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, (filter, label))| {
+                            segment_button(
+                                format!("contract-{i}"),
+                                label,
+                                self.contract_filter == filter,
+                                p,
+                            )
+                            .disabled(!self.account.is_connected())
+                            .when(filter == ContractFilter::Full, |b| {
+                                b.tooltip("累计好感达到 88,000，包含已契约角色")
+                            })
+                            .when(filter == ContractFilter::Ready, |b| {
+                                b.tooltip("已拥有、未契约、满好感且契约材料齐备")
+                            })
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.contract_filter = filter;
+                                    cx.notify();
+                                },
+                            ))
+                        }),
+                    ),
                 )
             })
             .child(div().flex_1())
@@ -221,64 +234,54 @@ impl Gallery {
             .items_center()
             .flex_shrink_0()
             .child(
-                ButtonGroup::new("sex-filter")
-                    .outline()
-                    .compact()
-                    .small()
-                    .children(
-                        [(0, text::ALL), (1, text::SAKURA), (2, text::BAMBOO)]
-                            .into_iter()
-                            .map(|(sex, label)| {
-                                Button::new(format!("sex-{sex}"))
-                                    .label(label)
-                                    .w(px(40.))
-                                    .px_1()
-                                    .selected(self.character_sex == sex)
-                                    .when(self.character_sex == sex, |b| {
-                                        b.bg(p.accent_bg).text_color(p.accent)
-                                    })
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.character_sex = sex;
-                                        cx.notify();
-                                    }))
-                            }),
-                    ),
+                choice_group("sex-filter").children(
+                    [(0, text::ALL), (1, text::SAKURA), (2, text::BAMBOO)]
+                        .into_iter()
+                        .map(|(sex, label)| {
+                            segment_button(
+                                format!("sex-{sex}"),
+                                label,
+                                self.character_sex == sex,
+                                p,
+                            )
+                            .w(px(40.))
+                            .px_1()
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.character_sex = sex;
+                                    cx.notify();
+                                },
+                            ))
+                        }),
+                ),
             )
             .child(
-                ButtonGroup::new("limited-filter")
-                    .outline()
-                    .compact()
-                    .small()
-                    .children(
-                        [
-                            (None, false, text::ALL),
-                            (Some(false), false, text::STANDARD),
-                            (Some(true), false, text::LIMITED),
-                            (Some(true), true, "联动"),
-                        ]
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, (limited, collaboration, label))| {
-                            Button::new(format!("limited-{i}"))
-                                .label(label)
-                                .w(px(40.))
-                                .px_1()
-                                .selected(
-                                    self.character_limited == limited
-                                        && self.character_collaboration == collaboration,
-                                )
-                                .when(
-                                    self.character_limited == limited
-                                        && self.character_collaboration == collaboration,
-                                    |b| b.bg(p.accent_bg).text_color(p.accent),
-                                )
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.character_limited = limited;
-                                    this.character_collaboration = collaboration;
-                                    cx.notify();
-                                }))
-                        }),
-                    ),
+                choice_group("limited-filter").children(
+                    [
+                        (None, false, text::ALL),
+                        (Some(false), false, text::STANDARD),
+                        (Some(true), false, text::LIMITED),
+                        (Some(true), true, "联动"),
+                    ]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, (limited, collaboration, label))| {
+                        segment_button(
+                            format!("limited-{i}"),
+                            label,
+                            self.character_limited == limited
+                                && self.character_collaboration == collaboration,
+                            p,
+                        )
+                        .w(px(40.))
+                        .px_1()
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.character_limited = limited;
+                            this.character_collaboration = collaboration;
+                            cx.notify();
+                        }))
+                    }),
+                ),
             )
             .into_any_element()
     }

@@ -1,3 +1,4 @@
+mod data;
 mod image_report;
 use crate::{
     account::AccountSnapshot,
@@ -5,6 +6,7 @@ use crate::{
 };
 use anyhow::{Result, ensure};
 use base64::{Engine, engine::general_purpose::STANDARD};
+use data::{gift_groups, owned_sections};
 use std::{
     collections::BTreeMap,
     io::Cursor,
@@ -55,34 +57,30 @@ fn embedded_image(path: Option<PathBuf>, cache: &mut BTreeMap<PathBuf, String>) 
     if let Some(value) = cache.get(&path) {
         return Ok(value.clone());
     }
-    let image = image::open(&path)?.thumbnail(144, 144);
-    let mut buffer = Cursor::new(Vec::new());
-    image.write_to(&mut buffer, image::ImageFormat::Png)?;
     let value = format!(
         "<img alt=\"\" src=\"data:image/png;base64,{}\">",
-        STANDARD.encode(buffer.into_inner())
+        thumbnail_base64(&path, 144)?
     );
     cache.insert(path, value.clone());
     Ok(value)
 }
+fn thumbnail_base64(path: &Path, size: u32) -> Result<String> {
+    let image = image::open(path)?.thumbnail(size, size);
+    let mut bytes = Cursor::new(Vec::new());
+    image.write_to(&mut bytes, image::ImageFormat::Png)?;
+    Ok(STANDARD.encode(bytes.into_inner()))
+}
+
 pub fn gift_html(library: &Library, options: &GiftOptions) -> Result<String> {
-    let mut groups = BTreeMap::<String, (&Item, Vec<&Character>)>::new();
-    let mut selected = 0;
-    for c in library.characters.iter().filter(|c| options.includes(c)) {
-        if let Some(gift) = purple_gift(c) {
-            groups
-                .entry(gift.id.clone())
-                .or_insert_with(|| (gift, vec![]))
-                .1
-                .push(c);
-            selected += 1;
-        }
-    }
-    ensure!(selected > 0, "所选范围没有可导出的角色喜好资料");
+    let groups = gift_groups(library, options)?;
+    let selected = groups
+        .iter()
+        .map(|group| group.characters.len())
+        .sum::<usize>();
     let mut out = String::from(include_str!("assets/gift-report.html"));
     let mut cache = BTreeMap::new();
     out.push_str(&format!("<p class=\"summary\"><span id=\"result-count\" role=\"status\" aria-live=\"polite\">共 {selected} 位角色</span> · 金色边框表示限定角色</p><p id=\"report-empty\" class=\"empty\" hidden>没有符合条件的角色，请调整搜索或筛选。</p><div class=\"head\"><h2>樱花</h2><h2>紫色礼物</h2><h2>竹林</h2></div>"));
-    for (_, (gift, characters)) in groups {
+    for data::GiftGroup { gift, characters } in groups {
         out.push_str("<section class=\"row\">");
         for sex in [1, 2] {
             if sex == 2 {
@@ -146,87 +144,12 @@ pub fn owned_html(
     account: &AccountSnapshot,
     options: &OwnedOptions,
 ) -> Result<String> {
-    ensure!(
-        options.characters || options.skins || options.decorations,
-        "请选择导出的收藏类型"
-    );
-    let mut cache = BTreeMap::new();
-    let mut sections = Vec::<(&str, &str, Vec<String>)>::new();
-    let mut card = |name: &str,
-                    subtitle: &str,
-                    image: Option<PathBuf>,
-                    terms: Vec<&str>,
-                    limited: bool|
-     -> Result<String> {
-        Ok(format!(
-            "<article class=\"entry{}\" data-search=\"{}\">{}<strong>{}</strong><span>{}</span></article>",
-            if limited { " limited" } else { "" },
-            escape(&serde_json::to_string(&terms)?),
-            embedded_image(image, &mut cache)?,
-            escape(name),
-            escape(subtitle)
-        ))
-    };
-    if options.characters {
-        let mut cards = Vec::new();
-        for c in library
-            .characters
-            .iter()
-            .filter(|c| account.characters.get(&c.id).is_some_and(|s| s.owned))
-        {
-            cards.push(card(
-                &c.name,
-                if c.sex == 1 { "樱花" } else { "竹林" },
-                c.thumbnail(),
-                c.search.terms().to_vec(),
-                c.limited,
-            )?);
-        }
-        sections.push(("characters", "角色", cards));
-    }
-    if options.skins {
-        let mut cards = Vec::new();
-        for c in &library.characters {
-            for skin in c.skins.iter().filter(|skin| account.owns_skin(skin)) {
-                let mut terms = skin.search.terms().to_vec();
-                terms.extend(c.search.terms());
-                cards.push(card(
-                    skin.display_name(&c.name),
-                    &c.name,
-                    skin.thumbnail(),
-                    terms,
-                    c.limited,
-                )?);
-            }
-        }
-        sections.push(("skins", "皮肤", cards));
-    }
-    if options.decorations {
-        let mut groups = BTreeMap::<&str, Vec<String>>::new();
-        for d in library
-            .decorations
-            .iter()
-            .filter(|d| account.owns_decoration(d))
-        {
-            groups
-                .entry(crate::text::decoration_name(&d.category))
-                .or_default()
-                .push(card(
-                    &d.name,
-                    crate::text::decoration_name(&d.category),
-                    d.image.clone(),
-                    d.search.terms().to_vec(),
-                    false,
-                )?);
-        }
-        for (label, cards) in groups {
-            sections.push(("decorations", label, cards));
-        }
-    }
+    let sections = owned_sections(library, account, options)?;
     let total = sections
         .iter()
-        .map(|(_, _, cards)| cards.len())
+        .map(|section| section.entries.len())
         .sum::<usize>();
+    let mut cache = BTreeMap::new();
     let mut out = String::from(include_str!("assets/owned-report.html"));
     out.push_str(&format!(
         "<header><h1>{}的收藏</h1><p>UID {}{}</p></header>",
@@ -252,7 +175,18 @@ pub fn owned_html(
     out.push_str("</div><button id=\"owned-reset\" type=\"button\">重置</button></section>");
     out.push_str(&format!("<p id=\"owned-count\" role=\"status\" aria-live=\"polite\">共 {total} 项收藏</p><p id=\"owned-empty\" class=\"empty\" hidden>没有符合条件的收藏</p>"));
     let mut decoration_heading = false;
-    for (kind, name, cards) in sections {
+    for section in sections {
+        let kind = section.kind;
+        let name = section.label;
+        let cards = section.entries.into_iter().map(|entry| {
+            Ok(format!(
+                "<article class=\"entry{}\" data-search=\"{}\">{}<strong>{}</strong><span>{}</span></article>",
+                if entry.limited { " limited" } else { "" },
+                escape(&serde_json::to_string(&entry.terms)?),
+                embedded_image(entry.image, &mut cache)?,
+                escape(entry.name), escape(entry.subtitle)
+            ))
+        }).collect::<Result<Vec<_>>>()?;
         if kind == "decorations" && !decoration_heading {
             out.push_str("<h2 id=\"decorations-heading\">装扮</h2>");
             decoration_heading = true;

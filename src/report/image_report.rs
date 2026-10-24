@@ -30,11 +30,8 @@ impl Canvas {
             return Ok(());
         };
         if !self.images.contains_key(&path) {
-            let image = image::open(&path)?.thumbnail(160, 160);
-            let mut bytes = Cursor::new(Vec::new());
-            image.write_to(&mut bytes, image::ImageFormat::Png)?;
             self.images
-                .insert(path.clone(), STANDARD.encode(bytes.into_inner()));
+                .insert(path.clone(), thumbnail_base64(&path, 160)?);
         }
         self.body.push_str(&format!("<image x='{x}' y='{y}' width='{size}' height='{size}' preserveAspectRatio='xMidYMid meet' xlink:href='data:image/png;base64,{}'/>", self.images[&path]));
         Ok(())
@@ -69,17 +66,7 @@ fn short(name: &str, limit: usize) -> String {
 }
 
 pub(super) fn gifts(library: &Library, options: &GiftOptions, path: &Path) -> Result<()> {
-    let mut groups = BTreeMap::<String, (&Item, Vec<&Character>)>::new();
-    for c in library.characters.iter().filter(|c| options.includes(c)) {
-        if let Some(gift) = purple_gift(c) {
-            groups
-                .entry(gift.id.clone())
-                .or_insert_with(|| (gift, vec![]))
-                .1
-                .push(c);
-        }
-    }
-    ensure!(!groups.is_empty(), "所选范围没有可导出的角色喜好资料");
+    let groups = gift_groups(library, options)?;
     let mut canvas = Canvas::new(
         "雀魂角色喜好表",
         "樱花在左 · 紫色礼物居中 · 竹林在右 · 金色边框表示限定角色",
@@ -87,7 +74,7 @@ pub(super) fn gifts(library: &Library, options: &GiftOptions, path: &Path) -> Re
     canvas.text(24, 104, "樱花", 20, "#16826e");
     canvas.text(900, 104, "竹林", 20, "#16826e");
     let mut y = 120;
-    for (group_index, (_, (gift, characters))) in groups.into_iter().enumerate() {
+    for (group_index, data::GiftGroup { gift, characters }) in groups.into_iter().enumerate() {
         if group_index > 0 {
             canvas.body.push_str(&format!(
                 "<path d='M24 {} H1576' stroke='#d0dbe3' stroke-width='1'/>",
@@ -144,70 +131,7 @@ pub(super) fn owned(
     options: &OwnedOptions,
     path: &Path,
 ) -> Result<()> {
-    ensure!(
-        options.characters || options.skins || options.decorations,
-        "请选择导出的收藏类型"
-    );
-    type Entry = (String, String, Option<PathBuf>, bool);
-    let mut groups = Vec::<(String, Vec<Entry>)>::new();
-    if options.characters {
-        groups.push((
-            "角色".into(),
-            library
-                .characters
-                .iter()
-                .filter(|c| account.character(&c.id).owned)
-                .map(|c| {
-                    (
-                        c.name.clone(),
-                        if c.sex == 1 { "樱花" } else { "竹林" }.into(),
-                        c.thumbnail(),
-                        c.limited,
-                    )
-                })
-                .collect(),
-        ));
-    }
-    if options.skins {
-        groups.push((
-            "皮肤".into(),
-            library
-                .characters
-                .iter()
-                .flat_map(|c| {
-                    c.skins
-                        .iter()
-                        .filter(|s| account.owns_skin(s))
-                        .map(move |s| {
-                            (
-                                s.display_name(&c.name).into(),
-                                c.name.clone(),
-                                s.thumbnail(),
-                                c.limited,
-                            )
-                        })
-                })
-                .collect(),
-        ));
-    }
-    if options.decorations {
-        let mut decorations = BTreeMap::<&str, Vec<Entry>>::new();
-        for d in library
-            .decorations
-            .iter()
-            .filter(|d| account.owns_decoration(d))
-        {
-            decorations
-                .entry(crate::text::decoration_name(&d.category))
-                .or_default()
-                .push((d.name.clone(), String::new(), d.image.clone(), false));
-        }
-        groups.extend(
-            decorations
-                .into_iter()
-                .map(|(name, cards)| (format!("装扮 · {name}"), cards)),
-        );
-    }
+    let sections = owned_sections(library, account, options)?;
     let mut canvas = Canvas::new(
         &format!("{}的收藏", account.profile.nickname),
         &format!(
@@ -221,7 +145,13 @@ pub(super) fn owned(
         ),
     );
     let mut y = 106;
-    for (label, entries) in groups {
+    for section in sections {
+        let label = if section.kind == "decorations" {
+            format!("装扮 · {}", section.label)
+        } else {
+            section.label.into()
+        };
+        let entries = section.entries;
         if entries.is_empty() {
             continue;
         }
@@ -233,12 +163,17 @@ pub(super) fn owned(
             "#16826e",
         );
         y += 38;
-        for (i, (name, subtitle, image, limited)) in entries.iter().enumerate() {
+        for (i, entry) in entries.iter().enumerate() {
+            let subtitle = if section.kind == "decorations" {
+                ""
+            } else {
+                entry.subtitle
+            };
             let x = 24 + i as u32 % 10 * 156;
             let top = y + i as u32 / 10 * 150;
-            canvas.panel(x, top, 146, 140, *limited);
-            canvas.image(image.clone(), x + 25, top + 5, 96)?;
-            canvas.text(x + 7, top + 116, &short(name, 10), 13, "#213547");
+            canvas.panel(x, top, 146, 140, entry.limited);
+            canvas.image(entry.image.clone(), x + 25, top + 5, 96)?;
+            canvas.text(x + 7, top + 116, &short(entry.name, 10), 13, "#213547");
             canvas.text(x + 7, top + 133, &short(subtitle, 11), 12, "#617384");
         }
         y += entries.len().div_ceil(10) as u32 * 150 + 14;

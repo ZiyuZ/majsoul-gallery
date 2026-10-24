@@ -112,7 +112,7 @@ impl RenderOnce for FormDialog {
 /// Standard task body for any modal operation; progress details remain selectable by the caller.
 pub(super) fn progress_body(
     label: String,
-    progress: &crate::importer::Progress,
+    progress: &crate::task_process::Progress,
     indeterminate: bool,
     p: Palette,
 ) -> AnyElement {
