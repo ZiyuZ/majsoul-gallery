@@ -73,6 +73,7 @@ fn thumbnail_base64(path: &Path, size: u32) -> Result<String> {
 
 pub fn gift_html(library: &Library, options: &GiftOptions) -> Result<String> {
     let groups = gift_groups(library, options)?;
+    let footer = data::gift_footer(&groups);
     let selected = groups
         .iter()
         .map(|group| group.characters.len())
@@ -107,7 +108,11 @@ pub fn gift_html(library: &Library, options: &GiftOptions) -> Result<String> {
         }
         out.push_str("</section>");
     }
-    out.push_str("</main><script>");
+    out.push_str("<footer class=\"report-footer\" aria-label=\"导出信息\">");
+    for line in footer {
+        out.push_str(&format!("<p>{}</p>", escape(&line)));
+    }
+    out.push_str("</footer></main><script>");
     out.push_str(include_str!("assets/report-search.js"));
     out.push_str(include_str!("assets/gift-report.js"));
     out.push_str("</script></body></html>");
@@ -364,7 +369,50 @@ mod tests {
         let output = tempfile::tempdir()?;
         let path = output.path().join("gifts.png");
         write_gifts(&library, &GiftOptions::default(), &path)?;
-        assert_eq!(image::image_dimensions(path)?.0, 1600);
+        assert_eq!(image::image_dimensions(path)?, (1600, 332));
+
+        let mut library = library;
+        let mut bamboo = library.characters[0].clone();
+        bamboo.id = "2".into();
+        bamboo.sex = 2;
+        bamboo.limited = false;
+        library.characters.push(bamboo);
+        let mut without_gift = library.characters[0].clone();
+        without_gift.id = "3".into();
+        without_gift.gifts.clear();
+        library.characters.push(without_gift);
+        for (options, total, counts) in [
+            (
+                GiftOptions::default(),
+                2,
+                "樱花 1 位 · 竹林 1 位 · 常驻 1 位 · 限定 1 位",
+            ),
+            (
+                GiftOptions {
+                    bamboo: false,
+                    ..Default::default()
+                },
+                1,
+                "樱花 1 位 · 竹林 0 位 · 常驻 0 位 · 限定 1 位",
+            ),
+            (
+                GiftOptions {
+                    limited: false,
+                    ..Default::default()
+                },
+                1,
+                "樱花 0 位 · 竹林 1 位 · 常驻 1 位 · 限定 0 位",
+            ),
+        ] {
+            let groups = gift_groups(&library, &options)?;
+            let footer = data::gift_footer(&groups);
+            assert!(footer[0].starts_with("导出日期："));
+            assert!(footer[0].ends_with(&format!("共 {total} 位角色")));
+            assert_eq!(footer[1], counts);
+            let html = gift_html(&library, &options)?;
+            assert!(html.contains(&format!("<p>{counts}</p>")));
+            assert!(html.contains("<footer class=\"report-footer\""));
+        }
         Ok(())
     }
 }

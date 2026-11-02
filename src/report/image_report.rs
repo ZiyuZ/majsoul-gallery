@@ -67,6 +67,7 @@ fn short(name: &str, limit: usize) -> String {
 
 pub(super) fn gifts(library: &Library, options: &GiftOptions, path: &Path) -> Result<()> {
     let groups = gift_groups(library, options)?;
+    let footer = data::gift_footer(&groups);
     let mut canvas = Canvas::new(
         "雀魂角色喜好表",
         "樱花在左 · 紫色礼物居中 · 竹林在右 · 金色边框表示限定角色",
@@ -122,7 +123,13 @@ pub(super) fn gifts(library: &Library, options: &GiftOptions, path: &Path) -> Re
         }
         y += height;
     }
-    canvas.save(y + 16, path)
+    canvas.body.push_str(&format!(
+        "<path d='M24 {y} H1576' stroke='#d0dbe3' stroke-width='1'/>"
+    ));
+    for (i, line) in footer.iter().enumerate() {
+        canvas.text(24, y + 30 + i as u32 * 24, line, 15, "#617384");
+    }
+    canvas.save(y + 78, path)
 }
 
 pub(super) fn owned(

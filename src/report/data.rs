@@ -6,6 +6,30 @@ pub(super) struct GiftGroup<'a> {
     pub characters: Vec<&'a Character>,
 }
 
+pub(super) fn gift_footer(groups: &[GiftGroup<'_>]) -> [String; 2] {
+    let mut counts = [0usize; 4];
+    let mut total = 0;
+    for character in groups.iter().flat_map(|group| &group.characters) {
+        total += 1;
+        match character.sex {
+            1 => counts[0] += 1,
+            2 => counts[1] += 1,
+            _ => {}
+        }
+        counts[if character.limited { 3 } else { 2 }] += 1;
+    }
+    let date = time::OffsetDateTime::now_local()
+        .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
+        .date();
+    [
+        format!("导出日期：{date} · 共 {total} 位角色"),
+        format!(
+            "樱花 {} 位 · 竹林 {} 位 · 常驻 {} 位 · 限定 {} 位",
+            counts[0], counts[1], counts[2], counts[3]
+        ),
+    ]
+}
+
 pub(super) fn gift_groups<'a>(
     library: &'a Library,
     options: &GiftOptions,

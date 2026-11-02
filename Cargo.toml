@@ -27,6 +27,7 @@ rusty_spine = { version = "=0.8.0", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
+time = { version = "0.3", features = ["local-offset"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 uuid = { version = "1", features = ["v4"] }
 webp-animation = { version = "0.10", default-features = false, features = ["static"], optional = true }
