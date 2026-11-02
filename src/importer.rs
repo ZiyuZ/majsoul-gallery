@@ -43,13 +43,47 @@ fn source_signature(source: &Path) -> Result<Value> {
         bundles.insert(name, json!([stamp.0, stamp.1]));
     }
     Ok(
-        json!({"format":1,"inventory":1,"illustrations":2,"spine":cfg!(feature = "spine"),"source":source,"manifest":core::index::digest(fs::read(source.join("AssetBundleConfig.json"))?),"bundles":bundles}),
+        json!({"format":1,"inventory":1,"illustrations":2,"character_layout":1,"spine":cfg!(feature = "spine"),"source":source,"manifest":core::index::digest(fs::read(source.join("AssetBundleConfig.json"))?),"bundles":bundles}),
     )
 }
 fn read_resume(assets: &Path) -> Option<Value> {
     fs::read(assets.parent()?.join("import/resume.json"))
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
+}
+fn diagnostic_complete(assets: &Path) -> bool {
+    assets
+        .parent()
+        .and_then(|data| fs::read(data.join("import/diagnostics.json")).ok())
+        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+        .is_some_and(|report| report["status"] == "complete")
+}
+fn character_diagnostics(names: &core::names::Names, catalog: &core::Catalog) -> Value {
+    let configured = names
+        .rows("item_definition.character")
+        .iter()
+        .filter(|row| matches!(row["sex"].as_i64(), Some(1 | 2)))
+        .filter_map(|row| {
+            Some((
+                row["id"].as_i64()?,
+                row["name_chs"].as_str().unwrap_or_default(),
+            ))
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let linked = catalog
+        .groups
+        .iter()
+        .filter(|group| group.category == "character" && !group.story)
+        .filter_map(|group| group.character.as_ref())
+        .filter(|character| matches!(character.sex, Some(1 | 2)))
+        .map(|character| character.id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let unmatched = configured
+        .iter()
+        .filter(|(id, _)| !linked.contains(id))
+        .map(|(id, name)| json!({"id":id,"name":name}))
+        .collect::<Vec<_>>();
+    json!({"configured_characters":configured.len(),"configured_skins":names.rows("item_definition.skin").len(),"linked_characters":linked.len(),"unmatched_characters":unmatched})
 }
 pub fn has_updates(input: &Path, active: &Path) -> Result<bool> {
     let Some(baseline) = read_resume(active) else {
@@ -59,7 +93,7 @@ pub fn has_updates(input: &Path, active: &Path) -> Result<bool> {
     if baseline["source"] != json!(source) {
         return Ok(false);
     }
-    Ok(baseline != source_signature(&source)?)
+    Ok(!diagnostic_complete(active) || baseline != source_signature(&source)?)
 }
 pub fn worker(input: &Path, data: &Path, full: bool) -> Result<()> {
     fs::create_dir_all(data)?;
@@ -107,6 +141,7 @@ pub fn worker(input: &Path, data: &Path, full: bool) -> Result<()> {
         && baseline.as_ref() == Some(&signature)
         && let Ok(library) = crate::model::Library::load(&target)
         && library.status == "complete"
+        && diagnostic_complete(&target)
     {
         emit(json!({"type":"complete","assets":target,"source":source_path}));
         return Ok(());
@@ -130,6 +165,21 @@ pub fn worker(input: &Path, data: &Path, full: bool) -> Result<()> {
     phase.store(1, Ordering::Relaxed);
     let opened = core::session::load(Some(&input), &task)?;
     let names = opened.names.as_ref().context("无法解析本地名称和配置表")?;
+    let diagnostic_path = data.join("import/diagnostics.json");
+    let mut diagnostic = character_diagnostics(names, &opened.catalog);
+    diagnostic["application_version"] = json!(env!("CARGO_PKG_VERSION"));
+    diagnostic["source"] = json!(source_path);
+    diagnostic["bundles"] = json!(opened.library.index.bundles.len());
+    diagnostic["status"] = json!("exporting");
+    crate::files::write_json(&diagnostic_path, &diagnostic)?;
+    crate::diagnostics::record(format!(
+        "import: configured={} linked={} unmatched={}",
+        diagnostic["configured_characters"],
+        diagnostic["linked_characters"],
+        diagnostic["unmatched_characters"]
+            .as_array()
+            .map_or(0, Vec::len)
+    ));
     if let Some(warning) = &opened.name_warning {
         crate::diagnostics::record(warning);
     }
@@ -173,6 +223,11 @@ pub fn worker(input: &Path, data: &Path, full: bool) -> Result<()> {
         },
         &task,
     )?;
+    diagnostic["export_errors"] = json!(report.errors);
+    if report.errors != 0 {
+        diagnostic["status"] = json!("failed");
+        crate::files::write_json(&diagnostic_path, &diagnostic)?;
+    }
     ensure!(
         report.errors == 0,
         "{} 项素材未能导入。已完成的内容已保留，请查看日志后重试。",
@@ -181,9 +236,37 @@ pub fn worker(input: &Path, data: &Path, full: bool) -> Result<()> {
     phase.store(3, Ordering::Relaxed);
     task.update("验证角色、皮肤和装扮", 0, 1, "");
     let library = crate::model::Library::load(Path::new(&report.directory))?;
+    diagnostic["exported_characters"] = json!(library.characters.len());
+    let exported = library
+        .characters
+        .iter()
+        .map(|character| character.id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    let unexported = names
+        .rows("item_definition.character")
+        .iter()
+        .filter(|row| matches!(row["sex"].as_i64(), Some(1 | 2)))
+        .filter_map(|row| {
+            let id = row["id"].as_i64()?;
+            (!exported.contains(&id.to_string())).then(|| json!({"id":id,"name":row["name_chs"]}))
+        })
+        .collect::<Vec<_>>();
+    diagnostic["unexported_characters"] = json!(unexported);
+    let complete = !library.characters.is_empty()
+        && library.status == "complete"
+        && diagnostic["configured_characters"].as_u64() == Some(library.characters.len() as u64)
+        && diagnostic["unmatched_characters"]
+            .as_array()
+            .is_some_and(Vec::is_empty)
+        && unexported.is_empty();
+    diagnostic["status"] = json!(if complete { "complete" } else { "partial" });
+    crate::files::write_json(&diagnostic_path, &diagnostic)?;
     ensure!(
-        !library.characters.is_empty() && library.status == "complete",
-        "导入的素材包尚未完整生成"
+        complete,
+        "角色导入不完整：配置 {} 个，关联 {} 个，导入 {} 个。详细名单见 import/diagnostics.json。已导入素材已保留。",
+        diagnostic["configured_characters"],
+        diagnostic["linked_characters"],
+        library.characters.len()
     );
     fs::write(resume, signature.to_string())?;
     crate::storage::clear_import_cache(data)?;
@@ -205,6 +288,41 @@ pub fn run_worker(input: &Path, data: &Path, full: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn incomplete_diagnostics_do_not_allow_reusing_a_completed_export() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let assets = temp.path().join("materials");
+        fs::create_dir_all(temp.path().join("import"))?;
+        let report = temp.path().join("import/diagnostics.json");
+        assert!(!diagnostic_complete(&assets));
+        crate::files::write_json(&report, &json!({"status":"partial"}))?;
+        assert!(!diagnostic_complete(&assets));
+        crate::files::write_json(&report, &json!({"status":"complete"}))?;
+        assert!(diagnostic_complete(&assets));
+        Ok(())
+    }
+
+    #[test]
+    fn diagnostics_list_configured_players_missing_from_the_catalog() -> Result<()> {
+        let names = serde_json::from_value(
+            json!({"signature":"fixture","tables":{"item_definition.character":[
+            {"id":200001,"name_chs":"一姬","sex":1},{"id":0,"name_chs":"默认","sex":0}
+        ]},"icon_assets":{},"audio_assets":{},"spine_assets":{}}),
+        )?;
+        let catalog = core::Catalog {
+            categories: vec![],
+            groups: vec![],
+            resources: Default::default(),
+        };
+        let report = character_diagnostics(&names, &catalog);
+        assert_eq!(report["configured_characters"], 1);
+        assert_eq!(report["linked_characters"], 0);
+        assert_eq!(
+            report["unmatched_characters"],
+            json!([{"id":200001,"name":"一姬"}])
+        );
+        Ok(())
+    }
     #[test]
     #[ignore = "updates the locally imported package using the installed game"]
     fn local_illustration_import_matches_configured_images() -> Result<()> {

@@ -196,7 +196,7 @@ luabyte/lua/excels/langs/<表域>_<表名>_<字段名>_chs.lua.bytes
 
 主要关系是 `skin.character_id → character.id`。角色表提供角色名和角色属性；皮肤表提供皮肤身份、名称及资源选择信息。
 
-同安装 SkinTool 的选择规则为：
+已分析安装中的 SkinTool 使用以下规则：
 
 ```text
 GetSkinInfo(id)：spot.skin_spot 优先，否则 item_definition.skin
@@ -205,6 +205,8 @@ GetCharacterInfo(id)：spot.character_spot 优先，否则 item_definition.chara
   skin_version == 1 → skin.path
   其他情况         → myassets/deco/character/<完整 skin.id>
 ```
+
+本地关联以实际索引目录为准：配置 `skin.path` 对应的目录存在时使用该目录，否则定位 `myassets/deco/character/<完整 skin.id>`。部分安装的皮肤表没有 `skin_version` 字段，按真实目录选择可以正确关联这些命名目录。导入诊断保存于 `majsoul-gallery-data/import/diagnostics.json`，包含配置角色数、皮肤数、关联角色数、导出角色数及未匹配／未导出名单。角色配置与结果未对齐时，导入会保留已完成文件并报告差异。
 
 皮肤使用完整 ID，通过 character_id 关联角色。比如 `400501` 是相原舞初始形象、`400502` 是契约形象，`402601/402602` 对应雏桃；它们走完整皮肤 ID 的数字目录分支。`ailisha_99`、`erzhigonghua_99` 等剧情目录则由 `spot.skin_spot` 的路径记录关联。
 

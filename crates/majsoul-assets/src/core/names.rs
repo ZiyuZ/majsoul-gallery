@@ -315,12 +315,18 @@ impl Names {
             }
         }
         let skins = self.skins();
+        let skin_directories = catalog
+            .groups
+            .iter()
+            .filter(|group| group.category == "character")
+            .map(|group| group.path.clone())
+            .collect::<BTreeSet<_>>();
         for group in &mut catalog.groups {
             let folder = group.path.rsplit('/').next().unwrap_or("");
             if matches!(group.category.as_str(), "character" | "spine") {
                 for (table, skin) in skins.iter().copied().filter(|(_, s)| {
                     if group.category == "character" {
-                        skin_directory(s) == group.path
+                        skin_directory(s, &skin_directories) == group.path
                     } else {
                         s["id"].as_i64().is_some_and(|id| id.to_string() == folder)
                             && s["spine_type"].as_i64().unwrap_or(0) > 0
@@ -348,7 +354,7 @@ impl Names {
                         skin,
                         &name,
                         if group.category == "character" {
-                            "SkinTool.GetSkinIconDir：skin_version=1 用 path，否则用完整 skin.id；角色按配置外键关联"
+                            "skin.path → 本地资源目录，按 skin.id 定位数字目录；角色按配置外键关联"
                         } else {
                             "skin.id → Spine 数字目录，且 spine_type > 0；仅关联原料身份"
                         },
@@ -550,9 +556,10 @@ impl Names {
         values.into_values().collect()
     }
 }
-fn skin_directory(skin: &Value) -> String {
-    if skin["skin_version"].as_i64() == Some(1) {
-        normalize(text(skin, "path"))
+fn skin_directory(skin: &Value, directories: &BTreeSet<String>) -> String {
+    let configured = normalize(text(skin, "path"));
+    if directories.contains(&configured) {
+        configured
     } else {
         format!("myassets/deco/character/{}", skin["id"])
     }
@@ -592,6 +599,75 @@ fn add(bindings: &mut Vec<Binding>, table: &str, row: &Value, name: &str, via: &
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn skin_directories_follow_configured_paths_present_in_the_catalog() {
+        let directories = BTreeSet::from([
+            "myassets/deco/character/yiji".into(),
+            "myassets/deco/character/400501".into(),
+        ]);
+        assert_eq!(
+            skin_directory(
+                &serde_json::json!({"id":400101,"path":"deco/character/yiji"}),
+                &directories
+            ),
+            "myassets/deco/character/yiji"
+        );
+        assert_eq!(
+            skin_directory(
+                &serde_json::json!({"id":400501,"path":"deco/character/absent"}),
+                &directories
+            ),
+            "myassets/deco/character/400501"
+        );
+        assert_eq!(
+            skin_directory(
+                &serde_json::json!({"id":400101,"path":"deco/character/yiji","skin_version":1}),
+                &directories
+            ),
+            "myassets/deco/character/yiji"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires the diagnostic files from the other machine in debug/import"]
+    fn diagnostic_snapshot_links_every_configured_player() -> Result<()> {
+        let input = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../debug/import");
+        let index_path = fs::read_dir(input.join("indexes"))?
+            .next()
+            .context("missing diagnostic index")??
+            .path();
+        let library = Library {
+            index: serde_json::from_slice(&fs::read(&index_path)?)?,
+            index_path: index_path.clone(),
+        };
+        let names: Names = serde_json::from_slice(&fs::read(
+            input.join("names").join(index_path.file_name().unwrap()),
+        )?)?;
+        let temp = tempfile::tempdir()?;
+        super::super::index::set_data_dir(temp.path().to_owned())?;
+        fs::create_dir_all(temp.path().join("names"))?;
+        let mut catalog = Catalog::build(&library);
+        names.apply(&mut catalog);
+        names.apply_characters(&library, &mut catalog)?;
+        let linked = catalog
+            .groups
+            .iter()
+            .filter(|group| group.category == "character" && !group.story)
+            .filter_map(|group| group.character.as_ref())
+            .filter(|character| matches!(character.sex, Some(1 | 2)))
+            .map(|character| character.id)
+            .collect::<BTreeSet<_>>();
+        let expected = names
+            .rows("item_definition.character")
+            .iter()
+            .filter(|row| matches!(row["sex"].as_i64(), Some(1 | 2)))
+            .filter_map(|row| row["id"].as_i64())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(linked, expected);
+        assert_eq!(linked.len(), 122);
+        assert!(linked.contains(&200001));
+        Ok(())
+    }
     #[test]
     fn manifest_uses_original_bundle_order() -> Result<()> {
         let config: Value = serde_json::from_str(
